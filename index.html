@@ -3,234 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Omie Auditor V-17.3</title>
+    <title>Auditor Omie V-17.4</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        :root { --primary: #004a8d; --success: #2ecc71; --danger: #e74c3c; --bg: #f4f7f9; }
-        body { font-family: sans-serif; margin: 0; padding: 10px; background: var(--bg); }
-        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
-        h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--primary); }
-        input, select, button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
-        .btn-success { background: var(--success); color: white; border: none; font-weight: bold; }
-        .btn-cam { background: var(--primary); color: white; border: none; font-weight: bold; }
-        .btn-danger { background: var(--danger); color: white; border: none; }
-        .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center; }
-        .modal-content { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; max-height: 85vh; overflow-y: auto; }
+        :root { --blue: #004a8d; --green: #2ecc71; --red: #e74c3c; }
+        body { font-family: sans-serif; margin: 0; padding: 10px; background: #f4f7f9; }
+        .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
+        button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; }
+        input { width: 100%; padding: 12px; margin: 5px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; }
+        .btn-blue { background: var(--blue); color: white; }
+        .btn-green { background: var(--green); color: white; }
+        .btn-red { background: var(--red); color: white; }
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; }
+        .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; padding: 20px; border-radius: 15px; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
-        .date-container { display: flex; align-items: center; gap: 5px; }
+        th, td { border: 1px solid #ddd; padding: 5px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="card">
-        <h3>1. Relatório Omie (.xlsx)</h3>
-        <input type="file" id="input-excel" accept=".xlsx, .xls">
-        <p id="status-carga" style="font-size: 12px; color: #666; margin: 5px 0;">Nenhum arquivo carregado.</p>
+        <h3>1. Carregar Planilha Omie</h3>
+        <input type="file" id="file-input" accept=".xlsx, .xls">
+        <div id="info-carga" style="font-size: 12px; color: blue; font-weight: bold;">Aguardando arquivo...</div>
     </div>
 
     <div class="card">
         <h3>2. Scanner / Busca</h3>
         <div id="reader"></div>
-        <button id="btn-cam" class="btn-cam" onclick="toggleCam()">📷 ABRIR CÂMERA</button>
-        <input type="text" id="busca" placeholder="Digite Código ou Nome...">
-        <div id="lista-busca"></div>
+        <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR CÂMERA</button>
+        <input type="text" id="busca-input" placeholder="Digite nome ou código...">
+        <div id="resultados"></div>
     </div>
 
     <div class="card">
-        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; color: var(--primary);">
-            <span id="cont-total">Itens: 0</span>
-            <span id="diff-total">R$ 0,00</span>
-        </div>
-        <button class="btn-success" onclick="exportarExcel()" style="margin-top: 10px;">📥 EXPORTAR EXCEL</button>
-        <button class="btn-danger" onclick="limparTudo()" style="font-size: 11px; padding: 5px; opacity: 0.7;">Limpar Tudo</button>
-        
-        <div style="overflow-x: auto;">
-            <table id="tabela-contados">
-                <thead>
-                    <tr><th>Produto</th><th>Sist|Fís|Dif</th><th>CMC</th></tr>
-                </thead>
-                <tbody id="corpo-tabela"></tbody>
-            </table>
-        </div>
+        <div id="stats" style="font-weight: bold; margin-bottom: 10px;">Itens Contados: 0</div>
+        <button class="btn-green" onclick="baixarExcel()">📥 BAIXAR RESULTADO</button>
+        <button class="btn-red" onclick="limparLocalStorage()" style="font-size: 11px;">Limpar Tudo</button>
+        <table id="tabela">
+            <thead><tr><th>Produto</th><th>Sist|Fís|Dif</th></tr></thead>
+            <tbody id="tabela-body"></tbody>
+        </table>
     </div>
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h4 id="modal-titulo" style="margin:0;"></h4>
-            <div id="campos-novos" style="display:none;">
-                <input type="text" id="new-codigo" placeholder="Código">
-                <input type="text" id="new-nome" placeholder="Nome do Produto">
-            </div>
-            <p id="modal-info" style="font-size: 12px; color: #666;"></p>
-            <hr>
-            <label>Estoque Físico:</label>
-            <input type="number" id="modal-qtd" step="0.01" inputmode="decimal">
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="modal-lote" placeholder="Lote" style="width:50%">
-                <input type="text" id="modal-validade" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10" style="width:50%">
-            </div>
-            <button class="btn-success" onclick="confirmar()">CONFIRMAR</button>
+            <h4 id="m-titulo"></h4>
+            <p id="m-info" style="font-size: 12px; color: #666;"></p>
+            <label>Qtd Física:</label>
+            <input type="number" id="m-qtd" inputmode="decimal">
+            <input type="text" id="m-lote" placeholder="Lote">
+            <input type="text" id="m-validade" placeholder="Validade (DDMMYY)" inputmode="numeric">
+            <button class="btn-green" onclick="salvar()">CONFIRMAR</button>
             <button onclick="fecharModal()">CANCELAR</button>
         </div>
     </div>
 
     <script>
-        let db = [];
-        let contados = JSON.parse(localStorage.getItem('contados_v17_3')) || [];
+        let baseDados = [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v17_4')) || [];
         let itemAtual = null;
-        let scanner = null;
+        let html5QrCode = null;
 
-        // Máscara de Data
-        document.getElementById('modal-validade').oninput = function(e) {
+        // Máscara de Data Automática
+        document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
-            if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d{2,4}).*/, '$1/$2/$3');
-            else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,2}).*/, '$1/$2');
+            if (v.length > 2) v = v.substring(0,2) + '/' + v.substring(2);
+            if (v.length > 5) v = v.substring(0,5) + '/' + v.substring(5,9);
             e.target.value = v;
         };
 
-        // Carregar Excel com Busca de Colunas Inteligente
-        document.getElementById('input-excel').onchange = function(e) {
+        // Lógica de Importação Robusta
+        document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
-            reader.onload = (evt) => {
-                const wb = XLSX.read(evt.target.result, { type: 'binary' });
-                const ws = wb.Sheets[wb.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(ws, { range: 0 }); // Começa do topo
+            reader.onload = function(evt) {
+                const data = evt.target.result;
+                const workbook = XLSX.read(data, {type: 'binary'});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1}); // Pega linhas brutas
                 
-                db = json.map(row => {
-                    // Tenta achar colunas mesmo com nomes variados
-                    const codigo = row["Código do Produto"] || row["Código"] || row["Cód."];
-                    const desc = row["Descrição do Produto"] || row["Descrição"] || row["Nome"];
-                    const qtd = row["Quantidade"] || row["Estoque"] || 0;
-                    const cmc = row["CMC Unitário"] || row["Preço Unitário"] || 0;
-                    
-                    if (codigo && desc) {
-                        return { codigo: String(codigo), descricao: String(desc), sistema: parseFloat(qtd), cmc: parseFloat(cmc) };
+                baseDados = [];
+                // Pula as primeiras linhas (cabeçalho do Omie) e tenta ler dados
+                rows.forEach((row, index) => {
+                    if (index > 1 && row.length >= 2) {
+                        baseDados.push({
+                            codigo: String(row[0] || ''),
+                            descricao: String(row[1] || ''),
+                            sistema: parseFloat(row[2] || 0),
+                            cmc: parseFloat(row[3] || 0)
+                        });
                     }
-                    return null;
-                }).filter(i => i !== null);
-
-                document.getElementById('status-carga').innerText = `Sucesso: ${db.length} produtos carregados!`;
+                });
+                document.getElementById('info-carga').innerText = "✅ " + baseDados.length + " produtos carregados!";
             };
             reader.readAsBinaryString(e.target.files[0]);
         };
 
         // Busca
-        document.getElementById('busca').oninput = function() {
-            const t = this.value.toLowerCase();
-            const res = document.getElementById('lista-busca');
-            res.innerHTML = ''; 
-            if(t.length < 2) return;
+        document.getElementById('busca-input').oninput = function() {
+            const termo = this.value.toLowerCase();
+            const div = document.getElementById('resultados');
+            div.innerHTML = '';
+            if (termo.length < 2) return;
 
-            const filtrados = db.filter(i => i.descricao.toLowerCase().includes(t) || i.codigo.toLowerCase().includes(t));
-            
-            if(filtrados.length === 0) {
-                res.innerHTML = `<button onclick="abrirModal(null, '${t}')">➕ Cadastrar Novo</button>`;
-            } else {
-                filtrados.slice(0, 5).forEach(i => {
-                    const d = document.createElement('div');
-                    d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.codigo}</strong> - ${i.descricao}`;
-                    d.onclick = () => abrirModal(i);
-                    res.appendChild(d);
-                });
-            }
+            const matches = baseDados.filter(i => i.descricao.toLowerCase().includes(termo) || i.codigo.toLowerCase().includes(termo));
+            matches.slice(0, 5).forEach(i => {
+                const d = document.createElement('div');
+                d.className = 'item-res';
+                d.innerHTML = `<strong>${i.codigo}</strong><br>${i.descricao}`;
+                d.onclick = () => abrirModal(i);
+                div.appendChild(d);
+            });
         };
 
-        function abrirModal(item, termo = '') {
-            fecharCam();
-            document.getElementById('modal').style.display = 'flex';
-            document.getElementById('modal-qtd').value = '';
-            document.getElementById('modal-lote').value = '';
-            document.getElementById('modal-validade').value = '';
-            
-            if (item) {
-                itemAtual = item;
-                document.getElementById('campos-novos').style.display = 'none';
-                document.getElementById('modal-titulo').innerText = item.descricao;
-                document.getElementById('modal-info').innerText = `Sist: ${item.sistema}`;
-            } else {
-                itemAtual = null;
-                document.getElementById('campos-novos').style.display = 'block';
-                document.getElementById('modal-titulo').innerText = "Novo Item";
-                document.getElementById('new-codigo').value = isNaN(termo) ? '' : termo;
-                document.getElementById('new-nome').value = isNaN(termo) ? termo : '';
-            }
-            setTimeout(() => document.getElementById('modal-qtd').focus(), 200);
-        }
-
-        function fecharModal() { document.getElementById('modal').style.display = 'none'; }
-
-        function confirmar() {
-            const qtd = parseFloat(document.getElementById('modal-qtd').value);
-            if(isNaN(qtd)) return alert("Digite a quantidade!");
-
-            let novo;
-            if (itemAtual) {
-                const diff = qtd - itemAtual.sistema;
-                novo = { "Descrição": itemAtual.descricao, "Cód": itemAtual.codigo, "Estoque Sist": itemAtual.sistema, "Estoque Físico": qtd, "Diferença": diff, "CMC": itemAtual.cmc, "Total Diff": (diff * itemAtual.cmc), "Lote": document.getElementById('modal-lote').value, "Validade": document.getElementById('modal-validade').value };
-            } else {
-                novo = { "Descrição": "[NOVO] " + document.getElementById('new-nome').value, "Cód": document.getElementById('new-codigo').value, "Estoque Sist": 0, "Estoque Físico": qtd, "Diferença": qtd, "CMC": 0, "Total Diff": 0, "Lote": document.getElementById('modal-lote').value, "Validade": document.getElementById('modal-validade').value };
-            }
-
-            contados.unshift(novo);
-            localStorage.setItem('contados_v17_3', JSON.stringify(contados));
-            renderizar();
-            fecharModal();
-            document.getElementById('busca').value = '';
-            document.getElementById('lista-busca').innerHTML = '';
-        }
-
-        function renderizar() {
-            const corpo = document.getElementById('corpo-tabela');
-            let totR$ = 0;
-            corpo.innerHTML = contados.map(i => {
-                totR$ += i["Total Diff"];
-                return `<tr><td>${i.Descrição}</td><td>${i["Estoque Sist"]}|${i["Estoque Físico"]}|${i.Diferença}</td><td>${i.CMC.toFixed(2)}</td></tr>`;
-            }).join('');
-            document.getElementById('cont-total').innerText = `Itens: ${contados.length}`;
-            document.getElementById('diff-total').innerText = `R$ ${totR$.toFixed(2)}`;
-        }
-
-        // Câmera Estável
-        function toggleCam() {
+        function controlarCamera() {
             const btn = document.getElementById('btn-cam');
-            const r = document.getElementById('reader');
-            if (!scanner) scanner = new Html5Qrcode("reader");
+            const readerDiv = document.getElementById('reader');
+            
+            if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
 
-            if (r.style.display === "none" || r.style.display === "") {
-                r.style.display = "block";
-                btn.innerText = "🛑 PARAR CÂMERA";
-                scanner.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
-                    const p = db.find(i => i.codigo === txt);
-                    abrirModal(p, txt);
+            if (btn.innerText.includes("LIGAR")) {
+                readerDiv.style.display = "block";
+                btn.innerText = "🛑 DESLIGAR CÂMERA";
+                html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+                    const achei = baseDados.find(i => i.codigo === txt);
+                    abrirModal(achei || {codigo: txt, descricao: "Novo Produto", sistema: 0, cmc: 0});
                 });
             } else {
-                fecharCam();
+                desligarCam();
             }
         }
 
-        function fecharCam() {
-            if (scanner && scanner.isScanning) {
-                scanner.stop();
-                document.getElementById('reader').style.display = "none";
-                document.getElementById('btn-cam').innerText = "📷 ABRIR CÂMERA";
+        function desligarCam() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('reader').style.display = "none";
+                    document.getElementById('btn-cam').innerText = "📷 LIGAR CÂMERA";
+                }).catch(() => {});
             }
         }
 
-        function exportarExcel() {
-            const ws = XLSX.utils.json_to_sheet(contados);
+        function abrirModal(item) {
+            itemAtual = item;
+            document.getElementById('m-titulo').innerText = item.descricao;
+            document.getElementById('m-info').innerText = "Sistema: " + item.sistema;
+            document.getElementById('modal').style.display = "flex";
+            document.getElementById('m-qtd').value = '';
+            setTimeout(() => document.getElementById('m-qtd').focus(), 300);
+        }
+
+        function fecharModal() { document.getElementById('modal').style.display = "none"; }
+
+        function salvar() {
+            const q = parseFloat(document.getElementById('m-qtd').value);
+            if (isNaN(q)) return alert("Digite a quantidade!");
+
+            const registro = {
+                codigo: itemAtual.codigo,
+                descricao: itemAtual.descricao,
+                sistema: itemAtual.sistema,
+                fisico: q,
+                dif: q - itemAtual.sistema,
+                lote: document.getElementById('m-lote').value,
+                validade: document.getElementById('m-validade').value
+            };
+
+            contagens.unshift(registro);
+            localStorage.setItem('contas_v17_4', JSON.stringify(contagens));
+            atualizarTabela();
+            fecharModal();
+            document.getElementById('busca-input').value = '';
+            document.getElementById('resultados').innerHTML = '';
+        }
+
+        function atualizarTabela() {
+            const body = document.getElementById('tabela-body');
+            body.innerHTML = '';
+            contagens.forEach(i => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `<td>${i.descricao}</td><td>${i.sistema}|${i.fisico}|${i.dif}</td>`;
+                body.appendChild(tr);
+            });
+            document.getElementById('stats').innerText = "Itens Contados: " + contagens.length;
+        }
+
+        function baixarExcel() {
+            const ws = XLSX.utils.json_to_sheet(contagens);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-            XLSX.writeFile(wb, "Inventario_Final.xlsx");
+            XLSX.writeFile(wb, "resultado_auditoria.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar tudo?")) { contados = []; localStorage.clear(); renderizar(); } }
+        function limparLocalStorage() {
+            if(confirm("Apagar tudo?")) {
+                localStorage.removeItem('contas_v17_4');
+                contagens = [];
+                atualizarTabela();
+            }
+        }
 
-        renderizar();
+        atualizarTabela();
     </script>
 </body>
 </html>
