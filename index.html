@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.1 - CORREÇÃO SCANNER</title>
+    <title>Auditor Omie V-19.2 - BUSCA REFORÇADA</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,17 +12,13 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
         input, select, textarea { width: 100%; padding: 12px; margin: 4px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
-        textarea { height: 60px; font-family: sans-serif; resize: none; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-red { background: var(--red); color: white; }
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; overflow: hidden; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
-        .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; background: white; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
         .input-novo-nome { font-weight: bold; color: var(--blue); border: 2px solid var(--orange) !important; background: #fffbea; }
     </style>
 </head>
@@ -33,7 +29,6 @@
         <input type="file" id="file-input" accept=".xlsx, .xls">
         <div style="display: flex; gap: 5px;">
             <select id="filtro-local"><option value="">📍 Local (Todos)</option></select>
-            <select id="filtro-familia"><option value="">📂 Família (Todos)</option></select>
         </div>
         <div id="info-carga" style="font-size: 12px; color: var(--gray); margin-top: 5px;">Aguardando planilha...</div>
     </div>
@@ -52,12 +47,11 @@
             <span id="stats-valor" style="color: var(--blue);">Impacto: R$ 0,00</span>
         </div>
         <button class="btn-green" onclick="baixarExcel()">📥 BAIXAR EXCEL</button>
-        <button id="btn-apagar" style="background:#f39c12; color:white;" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
         <button class="btn-red" onclick="limparTudo()" style="font-size: 11px; opacity: 0.6; margin-top: 10px;">Limpar Tudo</button>
         
         <div style="overflow-x: auto; margin-top: 10px;">
-            <table id="tabela">
-                <thead><tr><th>Produto</th><th>Físico</th><th>Dif</th></tr></thead>
+            <table id="tabela" style="width:100%; border-collapse: collapse; font-size:10px;">
+                <thead><tr style="background:#eee;"><th>Produto</th><th>Fis</th><th>Dif</th></tr></thead>
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
@@ -65,17 +59,13 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <div id="aviso-duplicado" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid #ffeeba;">
-                ⚠️ <b>Atenção:</b> Item já contado neste local!
-            </div>
-
-            <label style="font-size: 11px; font-weight: bold; color: var(--gray);">NOME DO PRODUTO:</label>
-            <input type="text" id="m-nome-edit" style="font-size: 16px; margin-bottom: 10px;">
+            <h4 id="m-header" style="margin:0 0 10px 0; color:var(--blue);">Conferir Item</h4>
+            <label style="font-size: 11px; font-weight: bold;">NOME:</label>
+            <input type="text" id="m-nome-edit">
             
             <div id="m-info-box" style="background: #f1f4f8; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 5px solid var(--blue);">
-                <p id="m-loc-fam" style="font-size: 11px; margin: 2px 0; color: #555;"></p>
+                <p id="m-loc-fam" style="font-size: 11px; margin: 2px 0;"></p>
                 <p id="m-sist" style="font-size: 13px; margin: 4px 0; font-weight: bold;"></p>
-                <p id="m-cmc" style="font-size: 11px; margin: 2px 0; color: var(--gray);"></p>
             </div>
             
             <label style="font-size: 12px; font-weight: bold;">Qtd Física:</label>
@@ -91,9 +81,6 @@
                     <input type="tel" id="m-validade" placeholder="DD/MM/AAAA" maxlength="10">
                 </div>
             </div>
-
-            <label style="font-size: 11px; font-weight: bold;">Observações:</label>
-            <textarea id="m-obs"></textarea>
             
             <button class="btn-green" onclick="salvar()" style="margin-top: 15px;">✅ CONFIRMAR</button>
             <button onclick="fecharModal()" style="background:#eee; color:#333;">CANCELAR</button>
@@ -102,19 +89,14 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_1')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_2')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        // MÁSCARA DE DATA AUTOMÁTICA
         document.getElementById('m-validade').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g, '');
-            if (v.length > 8) v = v.substring(0, 8);
-            if (v.length > 4) {
-                v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4);
-            } else if (v.length > 2) {
-                v = v.substring(0, 2) + '/' + v.substring(2);
-            }
+            if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
+            else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
             e.target.value = v;
         });
 
@@ -122,125 +104,89 @@
             const reader = new FileReader();
             reader.onload = function(evt) {
                 const workbook = XLSX.read(evt.target.result, {type: 'binary'});
-                const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
-                baseDados = []; let locais = new Set(); let familias = new Set();
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                baseDados = []; let locais = new Set();
                 rows.forEach((row, index) => {
                     if (index > 2 && row[1]) {
+                        const cod = String(row[0] || '').trim();
                         const loc = String(row[12] || 'Sem Local').trim();
-                        const fam = String(row[2] || 'Sem Família').trim();
-                        locais.add(loc); familias.add(fam);
+                        locais.add(loc);
                         baseDados.push({
-                            // LIMPEZA DO CÓDIGO DA PLANILHA
-                            codigo: String(row[0] || '').trim(), 
+                            codigo: cod, 
                             descricao: String(row[1] || '').trim(), 
-                            familia: fam,
-                            loteOriginal: String(row[4] || '').trim(), 
+                            local: loc,
+                            loteOriginal: String(row[4] || '').trim(),
                             validadeOriginal: String(row[5] || '').trim(),
-                            local: loc, 
-                            sistema: parseFloat(row[9] || 0), 
-                            cmc: parseFloat(row[10] || 0), 
-                            novo: false
+                            sistema: parseFloat(row[9] || 0),
+                            cmc: parseFloat(row[10] || 0)
                         });
                     }
                 });
                 const selL = document.getElementById('filtro-local');
-                const selF = document.getElementById('filtro-familia');
                 selL.innerHTML = '<option value="">📍 Local (Todos)</option>';
                 Array.from(locais).sort().forEach(l => selL.innerHTML += `<option value="${l}">${l}</option>`);
-                selF.innerHTML = '<option value="">📂 Família (Todos)</option>';
-                Array.from(familias).sort().forEach(f => selF.innerHTML += `<option value="${f}">${f}</option>`);
                 document.getElementById('info-carga').innerText = `✅ ${baseDados.length} itens carregados.`;
             };
             reader.readAsBinaryString(e.target.files[0]);
-        };
-
-        document.getElementById('busca-input').oninput = function() {
-            const t = this.value.toLowerCase().trim();
-            const lS = document.getElementById('filtro-local').value;
-            const res = document.getElementById('resultados');
-            res.innerHTML = ''; if (t.length < 1) return;
-            const filtered = baseDados.filter(i => {
-                return (i.descricao.toLowerCase().includes(t) || i.codigo.toLowerCase() === t) && (lS==="" || i.local===lS);
-            });
-            if (filtered.length > 0) {
-                filtered.slice(0, 15).forEach(i => {
-                    const d = document.createElement('div'); d.className = 'item-res';
-                    const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
-                    d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">Já Contado</span>' : ''}<div class="item-detail">${i.local} | Sist: ${i.sistema}</div>`;
-                    d.onclick = () => verificarAbrirModal(i); res.appendChild(d);
-                });
-            } else {
-                const btnNovo = document.createElement('div');
-                btnNovo.className = 'item-res'; btnNovo.style.background = "#eef";
-                btnNovo.innerHTML = `➕ Novo: "${this.value}"`;
-                btnNovo.onclick = () => {
-                    verificarAbrirModal({
-                        codigo: "NOVO", descricao: this.value.toUpperCase(), 
-                        local: lS || "MANUAL", familia: "NOVO", sistema: 0, cmc: 0, 
-                        loteOriginal: '', validadeOriginal: '', novo: true
-                    });
-                };
-                res.appendChild(btnNovo);
-            }
         };
 
         async function controlarCamera() {
             const btn = document.getElementById('btn-cam');
             if (btn.innerText.includes("LIGAR")) {
                 document.getElementById('reader').style.display = "block";
-                btn.innerText = "🛑 PARAR SCANNER"; btn.className = "btn-red";
+                btn.innerText = "🛑 PARAR SCANNER";
                 if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-                try {
-                    await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
-                        const lS = document.getElementById('filtro-local').value;
-                        // LIMPEZA DO CÓDIGO LIDO PELO SCANNER
-                        const codigoLimpo = txt.trim();
-                        const p = baseDados.find(i => i.codigo === codigoLimpo && (lS==="" || i.local===lS));
-                        desligarCam();
-                        if(p) { verificarAbrirModal(p); } 
-                        else { 
-                            verificarAbrirModal({
-                                codigo: codigoLimpo, descricao: "PRODUTO NOVO", 
-                                local: lS || "MANUAL", familia: "NOVO", sistema: 0, cmc: 0, 
-                                loteOriginal: '', validadeOriginal: '', novo: true
-                            });
-                        }
-                    });
-                } catch (e) { desligarCam(); }
+                await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
+                    processarLeitura(txt.trim());
+                    desligarCam();
+                });
             } else { desligarCam(); }
         }
 
-        async function desligarCam() {
-            if (html5QrCode && html5QrCode.isScanning) { try { await html5QrCode.stop(); } catch(e){} }
+        function desligarCam() {
+            if (html5QrCode) html5QrCode.stop();
             document.getElementById('reader').style.display = "none";
-            document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue";
+            document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER";
         }
 
-        function verificarAbrirModal(item) {
-            const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
-            if (jaContado) {
-                if (!confirm(`Atenção: "${item.descricao}" já foi contado neste local. Continuar?`)) return;
-                document.getElementById('aviso-duplicado').style.display = 'block';
-            } else {
-                document.getElementById('aviso-duplicado').style.display = 'none';
+        // LÓGICA DE BUSCA MELHORADA
+        function processarLeitura(codigoLido) {
+            const localSelecionado = document.getElementById('filtro-local').value;
+            
+            // 1. Tenta achar no local selecionado
+            let item = baseDados.find(i => i.codigo === codigoLido && (localSelecionado === "" || i.local === localSelecionado));
+            
+            // 2. Se não achou, tenta achar em QUALQUER local da planilha
+            if (!item) {
+                item = baseDados.find(i => i.codigo === codigoLido);
+                if (item && localSelecionado !== "") {
+                    alert(`Aviso: Produto encontrado no local "${item.local}", mas você está filtrando por "${localSelecionado}".`);
+                }
             }
-            abrirModal(item);
+
+            if (item) {
+                abrirModal(item, false);
+            } else {
+                // 3. Se realmente não existe na planilha toda
+                abrirModal({
+                    codigo: codigoLido, descricao: "PRODUTO NOVO", 
+                    local: localSelecionado || "MANUAL", sistema: 0, cmc: 0,
+                    loteOriginal: '', validadeOriginal: ''
+                }, true);
+            }
         }
 
-        function abrirModal(item) {
+        function abrirModal(item, isNovo) {
             itemAtual = item;
             const inputNome = document.getElementById('m-nome-edit');
             inputNome.value = item.descricao;
-            if(item.novo) { inputNome.readOnly = false; inputNome.className = 'input-novo-nome'; } 
-            else { inputNome.readOnly = true; inputNome.className = ''; }
-
-            document.getElementById('m-loc-fam').innerText = `📍 Local: ${item.local}`;
+            inputNome.readOnly = !isNovo;
+            inputNome.className = isNovo ? 'input-novo-nome' : '';
+            
+            document.getElementById('m-loc-fam').innerText = `📍 Local: ${item.local} | Cód: ${item.codigo}`;
             document.getElementById('m-sist').innerText = "Estoque Sistema: " + item.sistema;
-            document.getElementById('m-cmc').innerText = "CMC: R$ " + item.cmc.toFixed(2);
             document.getElementById('m-lote').value = item.loteOriginal;
             document.getElementById('m-validade').value = item.validadeOriginal;
-            document.getElementById('m-obs').value = (item.novo && item.codigo !== "NOVO") ? "Cód Bipado: " + item.codigo : "";
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
@@ -250,26 +196,19 @@
 
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
-            const nomeFinal = document.getElementById('m-nome-edit').value;
             if (isNaN(q)) return alert("Informe a quantidade!");
 
             contagens.unshift({
-                codigo: itemAtual.codigo, descricao: nomeFinal, local: itemAtual.local,
-                sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
-                cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
-                lote: document.getElementById('m-lote').value, 
+                codigo: itemAtual.codigo, descricao: document.getElementById('m-nome-edit').value,
+                local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, 
+                dif: q - itemAtual.sistema, cmc_unitario: itemAtual.cmc, 
+                v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
+                lote: document.getElementById('m-lote').value,
                 validade: document.getElementById('m-validade').value,
-                observacoes: document.getElementById('m-obs').value, data: new Date().toLocaleString()
+                data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_1', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_2', JSON.stringify(contagens));
             render(); fecharModal();
-            document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
-        }
-
-        function apagarUltimo() {
-            if (contagens.length > 0 && confirm("Apagar último?")) {
-                contagens.shift(); localStorage.setItem('contas_v19_1', JSON.stringify(contagens)); render();
-            }
         }
 
         function render() {
@@ -287,10 +226,10 @@
             const ws = XLSX.utils.json_to_sheet(contagens);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
-            XLSX.writeFile(wb, "Inventario_Omie_V19.xlsx");
+            XLSX.writeFile(wb, "Inventario_Omie.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_1'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_2'); contagens = []; render(); } }
         render();
     </script>
 </body>
