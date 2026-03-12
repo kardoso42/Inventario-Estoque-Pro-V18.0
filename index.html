@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.3 - VERSÃO ESTÁVEL</title>
+    <title>Auditor Omie V-19.5 - PADRÃO MAIÚSCULAS</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,12 +12,15 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
         input, select, textarea { width: 100%; padding: 12px; margin: 4px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        /* Forçar visualmente maiúsculas enquanto digita */
+        .uppercase-input { text-transform: uppercase; }
         textarea { height: 60px; font-family: sans-serif; resize: none; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-red { background: var(--red); color: white; }
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; overflow: hidden; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
+        .item-detail { font-size: 11px; color: #666; margin-top: 3px; }
         .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
@@ -42,7 +45,7 @@
         <h3 style="margin:0; color:var(--blue);">2. Scanner / Busca</h3>
         <div id="reader"></div>
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
-        <input type="text" id="busca-input" placeholder="Digite nome ou código...">
+        <input type="text" id="busca-input" class="uppercase-input" placeholder="DIGITE NOME OU CÓDIGO...">
         <div id="resultados" style="max-height: 250px; overflow-y: auto;"></div>
     </div>
 
@@ -67,20 +70,25 @@
             <div id="aviso-duplicado" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid #ffeeba;">
                 ⚠️ Item já contado neste local!
             </div>
-            <label style="font-size: 11px; font-weight: bold;">NOME DO PRODUTO:</label>
-            <input type="text" id="m-nome-edit">
+            <label style="font-size: 11px; font-weight: bold; color: var(--gray);">NOME DO PRODUTO:</label>
+            <input type="text" id="m-nome-edit" class="uppercase-input">
+            
             <div id="m-info-box" style="background:#f1f4f8; padding:10px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue);">
-                <p id="m-loc-fam" style="font-size:11px; margin:2px 0;"></p>
-                <p id="m-sist" style="font-size:13px; margin:4px 0; font-weight:bold;"></p>
+                <p id="m-loc-fam" style="font-size:11px; margin:2px 0; color:#555;"></p>
+                <p id="m-sist-val" style="font-size:13px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
+                <p id="m-cmc-val" style="font-size:11px; margin:2px 0; color:#666;"></p>
             </div>
+
             <label style="font-size:12px; font-weight:bold;">Qtd Física:</label>
             <input type="number" id="m-qtd" inputmode="decimal">
+            
             <div style="display:flex; gap:8px;">
-                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote"></div>
+                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input"></div>
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10"></div>
             </div>
             <label style="font-size:11px; font-weight:bold;">Obs:</label>
-            <textarea id="m-obs"></textarea>
+            <textarea id="m-obs" class="uppercase-input"></textarea>
+            
             <button class="btn-green" onclick="salvar()">✅ CONFIRMAR</button>
             <button onclick="fecharModal()" style="background:#eee;">CANCELAR</button>
         </div>
@@ -88,7 +96,7 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_3')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_5')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
@@ -100,6 +108,13 @@
             e.target.value = v;
         };
 
+        // Forçar maiúsculas em tempo real nos campos de texto
+        document.querySelectorAll('.uppercase-input').forEach(input => {
+            input.addEventListener('input', function() {
+                this.value = this.value.toUpperCase();
+            });
+        });
+
         document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
             reader.onload = function(evt) {
@@ -108,38 +123,39 @@
                 baseDados = []; let locais = new Set(); let familias = new Set();
                 rows.forEach((row, index) => {
                     if (index > 2 && row[1]) {
-                        const loc = String(row[12] || 'Sem Local').trim();
-                        const fam = String(row[2] || 'Sem Família').trim();
+                        const loc = String(row[12] || 'Sem Local').trim().toUpperCase();
+                        const fam = String(row[2] || 'Sem Família').trim().toUpperCase();
                         locais.add(loc); familias.add(fam);
                         baseDados.push({
-                            codigo: String(row[0] || '').trim().replace(/^0+/, ''), // Limpa zeros à esquerda
-                            descricao: String(row[1] || '').trim(),
+                            codigo: String(row[0] || '').trim().toUpperCase(),
+                            descricao: String(row[1] || '').trim().toUpperCase(),
                             familia: fam, local: loc,
-                            loteOriginal: String(row[4] || '').trim(),
+                            loteOriginal: String(row[4] || '').trim().toUpperCase(),
                             validadeOriginal: String(row[5] || '').trim(),
-                            sistema: parseFloat(row[9] || 0), cmc: parseFloat(row[10] || 0)
+                            sistema: parseFloat(row[9] || 0), 
+                            cmc: parseFloat(row[10] || 0)
                         });
                     }
                 });
                 const selL = document.getElementById('filtro-local');
                 const selF = document.getElementById('filtro-familia');
-                selL.innerHTML = '<option value="">📍 Local (Todos)</option>';
+                selL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
                 Array.from(locais).sort().forEach(l => selL.innerHTML += `<option value="${l}">${l}</option>`);
-                selF.innerHTML = '<option value="">📂 Família (Todos)</option>';
+                selF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
                 Array.from(familias).sort().forEach(f => selF.innerHTML += `<option value="${f}">${f}</option>`);
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} itens carregados.`;
+                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS CARREGADOS.`;
             };
             reader.readAsBinaryString(e.target.files[0]);
         };
 
         document.getElementById('busca-input').oninput = function() {
-            const t = this.value.toLowerCase().trim();
+            const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
             const fS = document.getElementById('filtro-familia').value;
             const res = document.getElementById('resultados');
             res.innerHTML = ''; if (t.length < 1) return;
             const filtered = baseDados.filter(i => {
-                const matchTexto = i.descricao.toLowerCase().includes(t) || i.codigo.includes(t);
+                const matchTexto = i.descricao.includes(t) || i.codigo.includes(t);
                 const matchLocal = lS === "" || i.local === lS;
                 const matchFam = fS === "" || i.familia === fS;
                 return matchTexto && matchLocal && matchFam;
@@ -147,12 +163,13 @@
             filtered.slice(0, 15).forEach(i => {
                 const d = document.createElement('div'); d.className = 'item-res';
                 const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
-                d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">Já Contado</span>' : ''}<br><small>${i.local} | Cód: ${i.codigo}</small>`;
+                d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">JÁ CONTADO</span>' : ''}
+                               <div class="item-detail">${i.local} | CÓD: ${i.codigo} | <span style="color:var(--blue)">SISTEMA: ${i.sistema}</span></div>`;
                 d.onclick = () => verificarAbrirModal(i, false); res.appendChild(d);
             });
             if (filtered.length === 0) {
                 const btn = document.createElement('button'); btn.className = 'btn-blue';
-                btn.innerHTML = `➕ Novo: "${this.value}"`;
+                btn.innerHTML = `➕ NOVO: "${this.value}"`;
                 btn.onclick = () => verificarAbrirModal({codigo: "NOVO", descricao: this.value.toUpperCase(), local: lS||"MANUAL", sistema:0, cmc:0}, true);
                 res.appendChild(btn);
             }
@@ -165,13 +182,13 @@
                 btn.innerText = "🛑 PARAR SCANNER";
                 if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
                 await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
-                    const codLimpo = txt.trim().replace(/^0+/, '');
+                    const codLimpo = txt.trim().toUpperCase();
                     const lS = document.getElementById('filtro-local').value;
                     let item = baseDados.find(i => i.codigo === codLimpo && (lS === "" || i.local === lS));
-                    if (!item) item = baseDados.find(i => i.codigo === codLimpo); // Busca Global se não achar no filtro
+                    if (!item) item = baseDados.find(i => i.codigo === codLimpo); 
                     desligarCam();
                     if(item) verificarAbrirModal(item, false);
-                    else verificarAbrirModal({codigo: codLimpo, descricao: "NOVO", local: lS||"MANUAL", sistema:0, cmc:0}, true);
+                    else verificarAbrirModal({codigo: codLimpo, descricao: "PRODUTO NOVO", local: lS||"MANUAL", sistema:0, cmc:0}, true);
                 });
             } else { desligarCam(); }
         }
@@ -184,16 +201,20 @@
 
         function verificarAbrirModal(item, isNovo) {
             const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
-            if (jaContado && !confirm("Item já contado. Continuar?")) return;
+            if (jaContado && !confirm("ITEM JÁ CONTADOnn. CONTINUAR?")) return;
             document.getElementById('aviso-duplicado').style.display = jaContado ? 'block' : 'none';
             itemAtual = item;
+            
             const inputNome = document.getElementById('m-nome-edit');
-            inputNome.value = item.descricao;
+            inputNome.value = item.descricao.toUpperCase();
             inputNome.readOnly = !isNovo;
-            inputNome.className = isNovo ? 'input-novo-nome' : '';
-            document.getElementById('m-loc-fam').innerText = `📍 Local: ${item.local} | Cód: ${item.codigo}`;
-            document.getElementById('m-sist').innerText = "Estoque Sistema: " + item.sistema;
-            document.getElementById('m-lote').value = item.loteOriginal || "";
+            inputNome.className = isNovo ? 'input-novo-nome uppercase-input' : 'uppercase-input';
+            
+            document.getElementById('m-loc-fam').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
+            document.getElementById('m-sist-val').innerText = `ESTOQUE SISTEMA: ${item.sistema}`;
+            document.getElementById('m-cmc-val').innerText = `CMC UNITÁRIO: R$ ${item.cmc.toFixed(2)}`;
+            
+            document.getElementById('m-lote').value = (item.loteOriginal || "").toUpperCase();
             document.getElementById('m-validade').value = item.validadeOriginal || "";
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
@@ -204,15 +225,18 @@
 
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
-            if (isNaN(q)) return alert("Qtd inválida");
+            if (isNaN(q)) return alert("QTD INVÁLIDA");
             contagens.unshift({
-                codigo: itemAtual.codigo, descricao: document.getElementById('m-nome-edit').value,
-                local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
+                codigo: itemAtual.codigo.toUpperCase(), 
+                descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
+                local: itemAtual.local.toUpperCase(), 
+                sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
                 cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
-                lote: document.getElementById('m-lote').value, validade: document.getElementById('m-validade').value,
+                lote: document.getElementById('m-lote').value.toUpperCase(), 
+                validade: document.getElementById('m-validade').value,
                 data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_3', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_5', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
@@ -221,18 +245,18 @@
             const body = document.getElementById('tabela-body');
             let vT = 0; body.innerHTML = '';
             contagens.forEach(i => { vT += i.v_dif; body.innerHTML += `<tr><td>${i.descricao}</td><td>${i.fisico}</td><td>${i.dif}</td></tr>`; });
-            document.getElementById('stats-contagem').innerText = "Itens: " + contagens.length;
-            document.getElementById('stats-valor').innerText = "Impacto: R$ " + vT.toFixed(2);
+            document.getElementById('stats-contagem').innerText = "ITENS: " + contagens.length;
+            document.getElementById('stats-valor').innerText = "IMPACTO: R$ " + vT.toFixed(2);
         }
 
         function baixarExcel() {
             const ws = XLSX.utils.json_to_sheet(contagens);
             const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
-            XLSX.writeFile(wb, "Inventario_Final.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, "AUDITORIA");
+            XLSX.writeFile(wb, "INVENTARIO_FINAL.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_3'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("LIMPAR TUDO?")) { localStorage.removeItem('contas_v19_5'); contagens = []; render(); } }
         render();
     </script>
 </body>
