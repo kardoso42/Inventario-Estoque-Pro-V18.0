@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Omie Auditor V-17.0</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <style>
+        :root { --primary: #004a8d; --success: #2ecc71; --danger: #e74c3c; --warning: #f39c12; --bg: #f4f7f9; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 10px; background: var(--bg); color: #333; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 12px; }
+        h3 { margin: 0 0 10px 0; font-size: 13px; text-transform: uppercase; color: var(--primary); border-bottom: 2px solid #f0f4f8; }
+        input, select, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: 1px solid #ddd; box-sizing: border-box; font-size: 16px; }
+        .btn-success { background: var(--success); color: white; border: none; font-weight: bold; }
+        .btn-danger { background: var(--danger); color: white; border: none; }
+        .btn-warning { background: var(--warning); color: white; border: none; }
+        .btn-cam { background: #34495e; color: white; border: none; font-size: 14px; }
+        .item-res { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; background: #fff; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
+        .td-left { text-align: left; }
+        .diff-pos { background: #d4edda; color: #155724; font-weight: bold; }
+        .diff-neg { background: #f8d7da; color: #721c24; font-weight: bold; }
+        .stats { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 10px; color: var(--primary); }
+        .date-container { position: relative; display: flex; align-items: center; }
+        .btn-cal { width: 45px; margin-left: 5px; background: #eee; font-size: 18px; border-radius: 8px; border: 1px solid #ddd; }
+        #reader { width: 100%; background: #000; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h3>1. Relatório Omie (.xlsx)</h3>
+        <input type="file" id="input-excel" accept=".xlsx, .xls">
+        <select id="filtro-local"><option value="">Todos os Locais</option></select>
+    </div>
+
+    <div class="card">
+        <h3>2. Scanner / Câmera</h3>
+        <div id="reader"></div>
+        <button id="btn-start-cam" class="btn-cam">📷 Iniciar Câmera Traseira</button>
+        <input type="text" id="busca" placeholder="Código ou Nome...">
+        <div id="lista-busca"></div>
+    </div>
+
+    <div class="card">
+        <div class="stats">
+            <span id="contagem-total">Contados: 0</span>
+            <span id="valor-total-diff">Diff Total: R$ 0,00</span>
+        </div>
+        <button class="btn-success" onclick="exportarExcel()">📥 EXPORTAR EXCEL</button>
+        <div style="display: flex; gap: 5px; margin-top: 5px;">
+            <button class="btn-warning" onclick="removerUltimo()" style="font-size: 11px;">↩ Remover Último</button>
+            <button class="btn-danger" onclick="limparDados()" style="font-size: 11px;">🗑 Limpar Tudo</button>
+        </div>
+        
+        <div style="overflow-x: auto;">
+            <table id="tabela-contados">
+                <thead>
+                    <tr>
+                        <th class="td-left">Produto</th>
+                        <th>Sist | Físico | Dif</th>
+                        <th>CMC Un.</th>
+                    </tr>
+                </thead>
+                <tbody id="corpo-tabela"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <h4 id="modal-titulo" style="margin:0;"></h4>
+            <div id="campos-novos" style="display:none;">
+                <label>Código Novo:</label>
+                <input type="text" id="new-codigo">
+                <label>Nome Novo:</label>
+                <input type="text" id="new-nome">
+            </div>
+            <p id="modal-info" style="font-size: 12px; color: #666;"></p>
+            <hr>
+            <label>Saldo Estoque Físico:</label>
+            <input type="number" id="modal-qtd" step="0.01" inputmode="decimal">
+            
+            <div style="display: flex; gap: 5px;">
+                <div style="width: 50%;">
+                    <label>Lote:</label>
+                    <input type="text" id="modal-lote" placeholder="Lote">
+                </div>
+                <div style="width: 50%;">
+                    <label>Validade:</label>
+                    <div class="date-container">
+                        <input type="text" id="modal-validade" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10">
+                        <input type="date" id="cal-helper" style="position:absolute; opacity:0; width:100%; pointer-events:none;">
+                        <button class="btn-cal" onclick="document.getElementById('cal-helper').showPicker()">📅</button>
+                    </div>
+                </div>
+            </div>
+            <button class="btn-success" onclick="confirmarContagem()">CONFIRMAR</button>
+            <button class="btn-danger" onclick="fecharModal()" style="background:#999">VOLTAR</button>
+        </div>
+    </div>
+
+    <script>
+        let db = [];
+        let contados = JSON.parse(localStorage.getItem('contados_v17_0')) || [];
+        let itemAtual = null;
+        let modoNovo = false;
+
+        // MÁSCARA DE DATA AUTOMÁTICA
+        document.getElementById('modal-validade').addEventListener('input', function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 8) v = v.substring(0, 8);
+            if (v.length > 4) {
+                v = v.replace(/^(\d{2})(\d{2})(\d{2,4}).*/, '$1/$2/$3');
+            } else if (v.length > 2) {
+                v = v.replace(/^(\d{2})(\d{1,2}).*/, '$1/$2');
+            }
+            e.target.value = v;
+        });
+
+        document.getElementById('cal-helper').addEventListener('change', function() {
+            const data = this.value.split('-').reverse().join('/');
+            document.getElementById('modal-validade').value = data;
+        });
+
+        document.getElementById('input-excel').addEventListener('change', function(e) {
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const workbook = XLSX.read(evt.target.result, { type: 'binary' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { range: 2 });
+                db = json.map(row => ({
+                    codigo: row["Código do Produto"] || row["Código"],
+                    descricao: row["Descrição do Produto"] || row["Descrição"],
+                    local: row["Descrição do Local"] || "Geral",
+                    sistema: parseFloat(row["Quantidade"] || 0),
+                    cmc: parseFloat(row["CMC Unitário"] || 0)
+                }));
+                const locais = [...new Set(db.map(i => i.local))];
+                const select = document.getElementById('filtro-local');
+                select.innerHTML = '<option value="">Todos os Locais</option>';
+                locais.forEach(l => select.innerHTML += `<option value="${l}">${l}</option>`);
+                alert("Base Omie Carregada!");
+            };
+            reader.readAsBinaryString(e.target.files[0]);
+        });
+
+        document.getElementById('busca').oninput = function() {
+            const t = this.value.toLowerCase();
+            const loc = document.getElementById('filtro-local').value;
+            const res = document.getElementById('lista-busca');
+            res.innerHTML = ''; if(t.length < 2) return;
+            const filtrados = db.filter(i => (String(i.descricao).toLowerCase().includes(t) || String(i.codigo).toLowerCase().includes(t)) && (loc === "" || i.local === loc));
+            if(filtrados.length === 0) {
+                res.innerHTML = `<button class="btn-new" onclick="abrirModalNovo('${t}')">➕ Cadastrar como Novo</button>`;
+                return;
+            }
+            filtrados.slice(0, 5).forEach(i => {
+                const d = document.createElement('div');
+                d.className = 'item-res';
+                d.innerHTML = `<strong>${i.codigo}</strong> - ${i.descricao}`;
+                d.onclick = () => abrirModal(i);
+                res.appendChild(d);
+            });
+        };
+
+        function abrirModal(item) {
+            modoNovo = false; itemAtual = item;
+            document.getElementById('campos-novos').style.display = 'none';
+            document.getElementById('modal-titulo').innerText = item.descricao;
+            document.getElementById('modal-info').innerText = `Omie: ${item.sistema} | CMC: R$ ${item.cmc.toFixed(2)}`;
+            document.getElementById('modal-qtd').value = '';
+            document.getElementById('modal-validade').value = '';
+            document.getElementById('modal-lote').value = '';
+            document.getElementById('modal').style.display = 'flex';
+            setTimeout(() => document.getElementById('modal-qtd').focus(), 300);
+        }
+
+        function abrirModalNovo(termo) {
+            modoNovo = true;
+            document.getElementById('campos-novos').style.display = 'block';
+            document.getElementById('modal-titulo').innerText = "Novo Produto";
+            document.getElementById('new-codigo').value = isNaN(termo) ? "" : termo;
+            document.getElementById('new-nome').value = isNaN(termo) ? termo : "";
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function fecharModal() { document.getElementById('modal').style.display = 'none'; }
+
+        function confirmarContagem() {
+            const qtd = parseFloat(document.getElementById('modal-qtd').value);
+            if (isNaN(qtd)) return;
+            let registro;
+            if(modoNovo) {
+                registro = { "Código": document.getElementById('new-codigo').value || "NOVO", "Descrição": "[NOVO] " + (document.getElementById('new-nome').value || "Manual"), "Local": "MANUAL", "Estoque Sistema": 0, "CMC Unitário": 0, "Estoque Físico": qtd, "Diferença": qtd, "Total R$ Diff": 0, "Lote": document.getElementById('modal-lote').value || "N/A", "Validade": document.getElementById('modal-validade').value || "N/A", "Data": new Date().toLocaleString() };
+            } else {
+                const diff = qtd - itemAtual.sistema;
+                registro = { "Código": itemAtual.codigo, "Descrição": itemAtual.descricao, "Local": itemAtual.local, "Estoque Sistema": itemAtual.sistema, "CMC Unitário": itemAtual.cmc, "Estoque Físico": qtd, "Diferença": diff, "Total R$ Diff": (diff * itemAtual.cmc), "Lote": document.getElementById('modal-lote').value || "N/A", "Validade": document.getElementById('modal-validade').value || "N/A", "Data": new Date().toLocaleString() };
+            }
+            contados.unshift(registro);
+            localStorage.setItem('contados_v17_0', JSON.stringify(contados));
+            renderizarTabela(); fecharModal();
+            document.getElementById('busca').value = ''; document.getElementById('lista-busca').innerHTML = '';
+        }
+
+        function renderizarTabela() {
+            const corpo = document.getElementById('corpo-tabela');
+            let totalDiferencaRS = 0;
+            corpo.innerHTML = contados.map(item => {
+                const d = parseFloat(item.Diferença);
+                totalDiferencaRS += parseFloat(item["Total R$ Diff"] || 0);
+                const classe = d > 0 ? 'diff-pos' : (d < 0 ? 'diff-neg' : '');
+                return `<tr><td class="td-left">${item.Descrição}</td><td class="${classe}">${item["Estoque Sistema"]} | ${item["Estoque Físico"]} | ${d > 0 ? '+'+d : d}</td><td>${item["CMC Unitário"].toFixed(2)}</td></tr>`;
+            }).join('');
+            document.getElementById('contagem-total').innerText = `Contados: ${contados.length}`;
+            document.getElementById('valor-total-diff').innerText = `Diff Total: R$ ${totalDiferencaRS.toFixed(2)}`;
+        }
+
+        function removerUltimo() {
+            if(contados.length > 0 && confirm("Remover última contagem?")) {
+                contados.shift();
+                localStorage.setItem('contados_v17_0', JSON.stringify(contados));
+                renderizarTabela();
+            }
+        }
+
+        function exportarExcel() {
+            const ws = XLSX.utils.json_to_sheet(contados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Inventario");
+            XLSX.writeFile(wb, `AUDITORIA_V17.xlsx`);
+        }
+
+        function limparDados() {
+            if(confirm("Limpar tudo?")) {
+                contados = []; localStorage.removeItem('contados_v17_0'); renderizarTabela();
+            }
+        }
+
+        renderizarTabela();
+        const html5QrCode = new Html5Qrcode("reader");
+        const camConfig = { fps: 15, qrbox: { width: 250, height: 150 } };
+        document.getElementById('btn-start-cam').addEventListener('click', () => {
+            html5QrCode.start({ facingMode: "environment" }, camConfig, (txt) => {
+                const p = db.find(i => String(i.codigo) === txt);
+                if(p) abrirModal(p); else abrirModalNovo(txt);
+            });
+        });
+    </script>
+</body>
+</html>
