@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-18.8 - EDIÇÃO TOTAL</title>
+    <title>Auditor Omie V-18.9 - ANTI-DUPLICIDADE</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -26,6 +26,7 @@
         th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
         th { background: #f8f9fa; color: var(--blue); }
         .badge { background: #eef2f7; color: var(--blue); padding: 2px 6px; border-radius: 4px; font-size: 10px; display: inline-block; border: 1px solid #d1d9e6; }
+        .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; }
         .input-novo-nome { font-weight: bold; color: var(--blue); border: 2px solid var(--orange) !important; background: #fffbea; }
     </style>
 </head>
@@ -68,7 +69,11 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <label id="label-nome" style="font-size: 11px; font-weight: bold; color: var(--gray);">NOME DO PRODUTO:</label>
+            <div id="aviso-duplicado" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid #ffeeba;">
+                ⚠️ <b>Atenção:</b> Este item já foi contado neste local hoje!
+            </div>
+
+            <label style="font-size: 11px; font-weight: bold; color: var(--gray);">NOME DO PRODUTO:</label>
             <input type="text" id="m-nome-edit" style="font-size: 16px; margin-bottom: 10px;">
             
             <div id="m-info-box" style="background: #f1f4f8; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 5px solid var(--blue);">
@@ -94,14 +99,14 @@
             <label style="font-size: 11px; font-weight: bold;">Observações:</label>
             <textarea id="m-obs"></textarea>
             
-            <button class="btn-green" onclick="salvar()" style="margin-top: 15px;">✅ CONFIRMAR</button>
+            <button class="btn-green" onclick="salvar()" style="margin-top: 15px;">✅ CONFIRMAR CONTAGEM</button>
             <button onclick="fecharModal()" style="background:#eee; color:#333;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v18_8')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v18_9')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
@@ -155,15 +160,16 @@
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
                     const d = document.createElement('div'); d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><div class="item-detail">${i.local} | Sist: ${i.sistema}</div>`;
-                    d.onclick = () => abrirModal(i); res.appendChild(d);
+                    const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
+                    d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge badge-alerta">Já Contado</span>' : ''}<div class="item-detail">${i.local} | Sist: ${i.sistema}</div>`;
+                    d.onclick = () => verificarAbrirModal(i); res.appendChild(d);
                 });
             } else {
                 const btnNovo = document.createElement('div');
                 btnNovo.className = 'btn-novo-manual';
                 btnNovo.innerHTML = `➕ Adicionar "${this.value}" como Novo Item`;
                 btnNovo.onclick = () => {
-                    abrirModal({
+                    verificarAbrirModal({
                         codigo: "NOVO", descricao: this.value.toUpperCase(), 
                         local: lS || "MANUAL", familia: "NOVO", sistema: 0, cmc: 0, 
                         loteOriginal: '', validadeOriginal: '', novo: true
@@ -184,9 +190,9 @@
                         const lS = document.getElementById('filtro-local').value;
                         const p = baseDados.find(i => i.codigo === txt && (lS==="" || i.local===lS));
                         desligarCam();
-                        if(p) { abrirModal(p); } 
+                        if(p) { verificarAbrirModal(p); } 
                         else { 
-                            abrirModal({
+                            verificarAbrirModal({
                                 codigo: txt, descricao: "PRODUTO NOVO", 
                                 local: lS || "MANUAL", familia: "NOVO", sistema: 0, cmc: 0, 
                                 loteOriginal: '', validadeOriginal: '', novo: true
@@ -203,12 +209,25 @@
             document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue";
         }
 
+        // NOVA FUNÇÃO DE VERIFICAÇÃO
+        function verificarAbrirModal(item) {
+            const jaContado = contagens.find(c => c.codigo === item.codigo && c.local === item.local);
+            if (jaContado) {
+                if (!confirm(`Atenção: O item "${item.descricao}" já possui uma contagem registrada neste local.\n\nDeseja realizar uma NOVA contagem para ele?`)) {
+                    return;
+                }
+                document.getElementById('aviso-duplicado').style.display = 'block';
+            } else {
+                document.getElementById('aviso-duplicado').style.display = 'none';
+            }
+            abrirModal(item);
+        }
+
         function abrirModal(item) {
             itemAtual = item;
             const inputNome = document.getElementById('m-nome-edit');
             inputNome.value = item.descricao;
             
-            // Se for novo, destaca o campo e libera edição
             if(item.novo) {
                 inputNome.readOnly = false;
                 inputNome.className = 'input-novo-nome';
@@ -234,7 +253,6 @@
             const q = parseFloat(document.getElementById('m-qtd').value);
             const nomeFinal = document.getElementById('m-nome-edit').value;
             if (isNaN(q)) return alert("Informe a quantidade!");
-            if (!nomeFinal) return alert("O nome do produto não pode ficar vazio!");
 
             let dataInput = document.getElementById('m-validade').value;
             let dataFormatada = dataInput;
@@ -242,22 +260,20 @@
                 const p = dataInput.split("-"); dataFormatada = `${p[2]}/${p[1]}/${p[0]}`;
             }
             contagens.unshift({
-                codigo: itemAtual.codigo, 
-                descricao: nomeFinal, 
-                local: itemAtual.local,
+                codigo: itemAtual.codigo, descricao: nomeFinal, local: itemAtual.local,
                 sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
                 cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
                 lote: document.getElementById('m-lote').value, validade: dataFormatada,
                 observacoes: document.getElementById('m-obs').value, data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v18_8', JSON.stringify(contagens));
+            localStorage.setItem('contas_v18_9', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
 
         function apagarUltimo() {
             if (contagens.length > 0 && confirm("Apagar última contagem?")) {
-                contagens.shift(); localStorage.setItem('contas_v18_8', JSON.stringify(contagens)); render();
+                contagens.shift(); localStorage.setItem('contas_v18_9', JSON.stringify(contagens)); render();
             }
         }
 
@@ -279,7 +295,7 @@
             XLSX.writeFile(wb, "Inventario_Final_Omie.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar toda a lista?")) { localStorage.removeItem('contas_v18_8'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("Limpar toda a lista?")) { localStorage.removeItem('contas_v18_9'); contagens = []; render(); } }
         render();
     </script>
 </body>
