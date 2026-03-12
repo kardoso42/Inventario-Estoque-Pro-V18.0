@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.0 - MÁSCARA DATA + ANTI-DUPLICIDADE</title>
+    <title>Auditor Omie V-19.1 - CORREÇÃO SCANNER</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -16,7 +16,6 @@
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-red { background: var(--red); color: white; }
-        .btn-orange { background: var(--orange); color: white; }
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; overflow: hidden; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
         .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
@@ -53,7 +52,7 @@
             <span id="stats-valor" style="color: var(--blue);">Impacto: R$ 0,00</span>
         </div>
         <button class="btn-green" onclick="baixarExcel()">📥 BAIXAR EXCEL</button>
-        <button class="btn-orange" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
+        <button id="btn-apagar" style="background:#f39c12; color:white;" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
         <button class="btn-red" onclick="limparTudo()" style="font-size: 11px; opacity: 0.6; margin-top: 10px;">Limpar Tudo</button>
         
         <div style="overflow-x: auto; margin-top: 10px;">
@@ -103,7 +102,7 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_0')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_1')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
@@ -128,13 +127,20 @@
                 baseDados = []; let locais = new Set(); let familias = new Set();
                 rows.forEach((row, index) => {
                     if (index > 2 && row[1]) {
-                        const loc = String(row[12] || 'Sem Local');
-                        const fam = String(row[2] || 'Sem Família');
+                        const loc = String(row[12] || 'Sem Local').trim();
+                        const fam = String(row[2] || 'Sem Família').trim();
                         locais.add(loc); familias.add(fam);
                         baseDados.push({
-                            codigo: String(row[0] || ''), descricao: String(row[1] || ''), familia: fam,
-                            loteOriginal: String(row[4] || ''), validadeOriginal: String(row[5] || ''),
-                            local: loc, sistema: parseFloat(row[9] || 0), cmc: parseFloat(row[10] || 0), novo: false
+                            // LIMPEZA DO CÓDIGO DA PLANILHA
+                            codigo: String(row[0] || '').trim(), 
+                            descricao: String(row[1] || '').trim(), 
+                            familia: fam,
+                            loteOriginal: String(row[4] || '').trim(), 
+                            validadeOriginal: String(row[5] || '').trim(),
+                            local: loc, 
+                            sistema: parseFloat(row[9] || 0), 
+                            cmc: parseFloat(row[10] || 0), 
+                            novo: false
                         });
                     }
                 });
@@ -150,12 +156,12 @@
         };
 
         document.getElementById('busca-input').oninput = function() {
-            const t = this.value.toLowerCase();
+            const t = this.value.toLowerCase().trim();
             const lS = document.getElementById('filtro-local').value;
             const res = document.getElementById('resultados');
             res.innerHTML = ''; if (t.length < 1) return;
             const filtered = baseDados.filter(i => {
-                return (i.descricao.toLowerCase().includes(t) || i.codigo.toLowerCase().includes(t)) && (lS==="" || i.local===lS);
+                return (i.descricao.toLowerCase().includes(t) || i.codigo.toLowerCase() === t) && (lS==="" || i.local===lS);
             });
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
@@ -166,7 +172,7 @@
                 });
             } else {
                 const btnNovo = document.createElement('div');
-                btnNovo.className = 'btn-blue'; btnNovo.style.padding = "10px"; btnNovo.style.textAlign = "center";
+                btnNovo.className = 'item-res'; btnNovo.style.background = "#eef";
                 btnNovo.innerHTML = `➕ Novo: "${this.value}"`;
                 btnNovo.onclick = () => {
                     verificarAbrirModal({
@@ -188,12 +194,14 @@
                 try {
                     await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
                         const lS = document.getElementById('filtro-local').value;
-                        const p = baseDados.find(i => i.codigo === txt && (lS==="" || i.local===lS));
+                        // LIMPEZA DO CÓDIGO LIDO PELO SCANNER
+                        const codigoLimpo = txt.trim();
+                        const p = baseDados.find(i => i.codigo === codigoLimpo && (lS==="" || i.local===lS));
                         desligarCam();
                         if(p) { verificarAbrirModal(p); } 
                         else { 
                             verificarAbrirModal({
-                                codigo: txt, descricao: "PRODUTO NOVO", 
+                                codigo: codigoLimpo, descricao: "PRODUTO NOVO", 
                                 local: lS || "MANUAL", familia: "NOVO", sistema: 0, cmc: 0, 
                                 loteOriginal: '', validadeOriginal: '', novo: true
                             });
@@ -231,7 +239,7 @@
             document.getElementById('m-sist').innerText = "Estoque Sistema: " + item.sistema;
             document.getElementById('m-cmc').innerText = "CMC: R$ " + item.cmc.toFixed(2);
             document.getElementById('m-lote').value = item.loteOriginal;
-            document.getElementById('m-validade').value = item.validadeOriginal; // Preenche como texto
+            document.getElementById('m-validade').value = item.validadeOriginal;
             document.getElementById('m-obs').value = (item.novo && item.codigo !== "NOVO") ? "Cód Bipado: " + item.codigo : "";
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
@@ -250,17 +258,17 @@
                 sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
                 cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
                 lote: document.getElementById('m-lote').value, 
-                validade: document.getElementById('m-validade').value, // Salva o texto direto
+                validade: document.getElementById('m-validade').value,
                 observacoes: document.getElementById('m-obs').value, data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_0', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_1', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
 
         function apagarUltimo() {
             if (contagens.length > 0 && confirm("Apagar último?")) {
-                contagens.shift(); localStorage.setItem('contas_v19_0', JSON.stringify(contagens)); render();
+                contagens.shift(); localStorage.setItem('contas_v19_1', JSON.stringify(contagens)); render();
             }
         }
 
@@ -282,7 +290,7 @@
             XLSX.writeFile(wb, "Inventario_Omie_V19.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_0'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_1'); contagens = []; render(); } }
         render();
     </script>
 </body>
