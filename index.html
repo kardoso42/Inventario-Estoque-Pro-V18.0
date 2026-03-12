@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.6 - REVISÃO TOTAL</title>
+    <title>Auditor Omie V-19.7 - BUSCA E NOVO ITEM</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -100,11 +100,10 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_6')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_7')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        // Máscara de Data
         document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
@@ -112,7 +111,6 @@
             e.target.value = v;
         };
 
-        // Forçar maiúsculas nos inputs de texto
         document.querySelectorAll('.uppercase-input').forEach(el => {
             el.addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
         });
@@ -138,20 +136,16 @@
                         });
                     }
                 });
-                atualizarFiltros(locais, familias);
+                const selL = document.getElementById('filtro-local');
+                const selF = document.getElementById('filtro-familia');
+                selL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
+                Array.from(locais).sort().forEach(l => selL.innerHTML += `<option value="${l}">${l}</option>`);
+                selF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
+                Array.from(familias).sort().forEach(f => selF.innerHTML += `<option value="${f}">${f}</option>`);
                 document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS CARREGADOS.`;
             };
             reader.readAsBinaryString(e.target.files[0]);
         };
-
-        function atualizarFiltros(locais, familias) {
-            const selL = document.getElementById('filtro-local');
-            const selF = document.getElementById('filtro-familia');
-            selL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
-            Array.from(locais).sort().forEach(l => selL.innerHTML += `<option value="${l}">${l}</option>`);
-            selF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
-            Array.from(familias).sort().forEach(f => selF.innerHTML += `<option value="${f}">${f}</option>`);
-        }
 
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
@@ -167,19 +161,27 @@
                 return matchTexto && matchLocal && matchFam;
             });
 
-            filtered.slice(0, 15).forEach(i => {
-                const d = document.createElement('div'); d.className = 'item-res';
-                d.innerHTML = `<strong>${i.descricao}</strong><div class="item-detail">${i.local} | CÓD: ${i.codigo} | <span style="color:var(--blue); font-weight:bold;">SISTEMA: ${i.sistema}</span> | CMC: ${i.cmc.toFixed(2)}</div>`;
-                d.onclick = () => abrirModal(i, false);
-                res.appendChild(d);
-            });
+            if (filtered.length > 0) {
+                filtered.slice(0, 15).forEach(i => {
+                    const d = document.createElement('div'); d.className = 'item-res';
+                    d.innerHTML = `<strong>${i.descricao}</strong><div class="item-detail">${i.local} | CÓD: ${i.codigo} | <span style="color:var(--blue); font-weight:bold;">SISTEMA: ${i.sistema}</span> | CMC: ${i.cmc.toFixed(2)}</div>`;
+                    d.onclick = () => abrirModal(i, false);
+                    res.appendChild(d);
+                });
+            } else {
+                const btn = document.createElement('button');
+                btn.className = 'btn-blue'; btn.style.marginTop = '10px';
+                btn.innerHTML = `➕ CADASTRAR NOVO: "${t}"`;
+                btn.onclick = () => abrirModal({codigo: "NOVO", descricao: t, local: lS||"MANUAL", sistema:0, cmc:0}, true);
+                res.appendChild(btn);
+            }
         };
 
         async function controlarCamera() {
             const btn = document.getElementById('btn-cam');
             if (btn.innerText.includes("LIGAR")) {
                 document.getElementById('reader').style.display = "block";
-                btn.innerText = "🛑 PARAR SCANNER"; btn.className = "btn-red";
+                btn.innerText = "🛑 PARAR SCANNER";
                 if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
                 await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
                     const cod = txt.trim().toUpperCase();
@@ -195,7 +197,7 @@
         function desligarCam() {
             if (html5QrCode) html5QrCode.stop();
             document.getElementById('reader').style.display = "none";
-            document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue";
+            document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER";
         }
 
         function abrirModal(item, isNovo) {
@@ -221,21 +223,15 @@
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
             if (isNaN(q)) return alert("INFORME A QTD");
-            
             contagens.unshift({
                 codigo: itemAtual.codigo,
                 descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
-                local: itemAtual.local,
-                sistema: itemAtual.sistema,
-                fisico: q,
-                dif: q - itemAtual.sistema,
-                cmc_unitario: itemAtual.cmc,
-                v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
+                local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
+                cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
                 lote: document.getElementById('m-lote').value.toUpperCase(),
-                validade: document.getElementById('m-validade').value,
-                data: new Date().toLocaleString()
+                validade: document.getElementById('m-validade').value, data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_6', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_7', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
@@ -243,7 +239,7 @@
         function apagarUltimo() {
             if (contagens.length > 0 && confirm("APAGAR ÚLTIMA CONTAGEM?")) {
                 contagens.shift();
-                localStorage.setItem('contas_v19_6', JSON.stringify(contagens));
+                localStorage.setItem('contas_v19_7', JSON.stringify(contagens));
                 render();
             }
         }
@@ -253,13 +249,7 @@
             let vT = 0; body.innerHTML = '';
             contagens.forEach(i => {
                 vT += i.v_dif;
-                body.innerHTML += `<tr>
-                    <td style="text-align:left">${i.descricao}</td>
-                    <td>${i.sistema}</td>
-                    <td style="font-weight:bold">${i.fisico}</td>
-                    <td style="color:${i.dif < 0 ? 'red' : 'green'}">${i.dif}</td>
-                    <td>${i.cmc_unitario.toFixed(2)}</td>
-                </tr>`;
+                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td>${i.dif}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
             });
             document.getElementById('stats-contagem').innerText = "ITENS: " + contagens.length;
             document.getElementById('stats-valor').innerText = "IMPACTO: R$ " + vT.toFixed(2);
@@ -272,7 +262,7 @@
             XLSX.writeFile(wb, "INVENTARIO_FINAL.xlsx");
         }
 
-        function limparTudo() { if(confirm("LIMPAR TODAS AS CONTAGENS?")) { localStorage.removeItem('contas_v19_6'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("LIMPAR TODAS AS CONTAGENS?")) { localStorage.removeItem('contas_v19_7'); contagens = []; render(); } }
         render();
     </script>
 </body>
