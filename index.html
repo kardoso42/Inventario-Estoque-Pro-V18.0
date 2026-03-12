@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Omie Auditor V-17.1</title>
+    <title>Omie Auditor V-17.2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
@@ -15,20 +15,19 @@
         .btn-success { background: var(--success); color: white; border: none; font-weight: bold; }
         .btn-danger { background: var(--danger); color: white; border: none; }
         .btn-warning { background: var(--warning); color: white; border: none; }
-        .btn-cam { background: #34495e; color: white; border: none; font-size: 14px; }
+        .btn-cam { background: var(--primary); color: white; border: none; font-weight: bold; min-height: 50px; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; cursor: pointer; background: #fff; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; justify-content: center; align-items: center; }
-        .modal-content { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; }
+        .modal-content { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
         .td-left { text-align: left; }
         .diff-pos { background: #d4edda; color: #155724; font-weight: bold; }
         .diff-neg { background: #f8d7da; color: #721c24; font-weight: bold; }
         .stats { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 10px; color: var(--primary); }
+        #reader { width: 100%; background: #000; border-radius: 8px; overflow: hidden; margin-bottom: 10px; display: none; }
         .date-container { position: relative; display: flex; align-items: center; }
-        .btn-cal { width: 45px; margin-left: 5px; background: #eee; font-size: 18px; border-radius: 8px; border: 1px solid #ddd; }
-        #reader { width: 100%; background: #000; border-radius: 8px; min-height: 100px; }
-        .cam-off { display: none; }
+        .btn-cal { width: 45px; margin-left: 5px; background: #eee; font-size: 18px; border-radius: 8px; border: 1px solid #ddd; height: 45px; }
     </style>
 </head>
 <body>
@@ -42,8 +41,8 @@
     <div class="card">
         <h3>2. Scanner / Câmera</h3>
         <div id="reader"></div>
-        <button id="btn-cam-toggle" class="btn-cam">📷 Iniciar Câmera</button>
-        <input type="text" id="busca" placeholder="Código ou Nome...">
+        <button id="btn-cam-control" class="btn-cam" onclick="toggleCamera()">📷 ABRIR CÂMERA</button>
+        <input type="text" id="busca" placeholder="Buscar por código ou nome...">
         <div id="lista-busca"></div>
     </div>
 
@@ -74,17 +73,17 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h4 id="modal-titulo" style="margin:0;"></h4>
-            <div id="campos-novos" style="display:none;">
+            <h4 id="modal-titulo" style="margin:0; color: var(--primary);"></h4>
+            <div id="campos-novos" style="display:none; margin-top: 10px;">
                 <label>Código Novo:</label>
                 <input type="text" id="new-codigo">
                 <label>Nome Novo:</label>
                 <input type="text" id="new-nome">
             </div>
-            <p id="modal-info" style="font-size: 12px; color: #666;"></p>
+            <p id="modal-info" style="font-size: 12px; color: #666; font-weight: bold;"></p>
             <hr>
             <label>Saldo Estoque Físico:</label>
-            <input type="number" id="modal-qtd" step="0.01" inputmode="decimal">
+            <input type="number" id="modal-qtd" step="0.01" inputmode="decimal" placeholder="0.00">
             
             <div style="display: flex; gap: 5px;">
                 <div style="width: 50%;">
@@ -101,17 +100,16 @@
                 </div>
             </div>
             <button class="btn-success" onclick="confirmarContagem()">CONFIRMAR</button>
-            <button class="btn-danger" onclick="fecharModal()" style="background:#999">VOLTAR</button>
+            <button class="btn-danger" onclick="fecharModal()" style="background:#999">CANCELAR / VOLTAR</button>
         </div>
     </div>
 
     <script>
         let db = [];
-        let contados = JSON.parse(localStorage.getItem('contados_v17_1')) || [];
+        let contados = JSON.parse(localStorage.getItem('contados_v17_2')) || [];
         let itemAtual = null;
         let modoNovo = false;
-        let scannerAtivo = false;
-        const html5QrCode = new Html5Qrcode("reader");
+        let html5QrCode = null;
 
         // Máscara de data
         document.getElementById('modal-validade').addEventListener('input', function(e) {
@@ -126,132 +124,27 @@
             document.getElementById('modal-validade').value = this.value.split('-').reverse().join('/');
         });
 
-        // Controle de Câmera Inteligente
-        async function alternarCamera(forceOff = false) {
-            const btn = document.getElementById('btn-cam-toggle');
-            if (scannerAtivo || forceOff) {
-                await html5QrCode.stop().catch(() => {});
-                scannerAtivo = false;
-                btn.innerText = "📷 Iniciar Câmera";
-                btn.style.background = "#34495e";
-                document.getElementById('reader').classList.add('cam-off');
-            } else {
-                document.getElementById('reader').classList.remove('cam-off');
-                html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (txt) => {
-                    alternarCamera(true); // Desliga ao ler
-                    const p = db.find(i => String(i.codigo) === txt);
-                    if(p) abrirModal(p); else abrirModalNovo(txt);
-                });
-                scannerAtivo = true;
-                btn.innerText = "🛑 Parar Câmera";
-                btn.style.background = "#e74c3c";
+        // Controle da Câmera
+        async function toggleCamera() {
+            const btn = document.getElementById('btn-cam-control');
+            const reader = document.getElementById('reader');
+
+            if (!html5QrCode) {
+                html5QrCode = new Html5Qrcode("reader");
             }
-        }
 
-        document.getElementById('btn-cam-toggle').addEventListener('click', () => alternarCamera());
-
-        document.getElementById('input-excel').addEventListener('change', function(e) {
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                const workbook = XLSX.read(evt.target.result, { type: 'binary' });
-                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { range: 2 });
-                db = json.map(row => ({
-                    codigo: row["Código do Produto"] || row["Código"],
-                    descricao: row["Descrição do Produto"] || row["Descrição"],
-                    local: row["Descrição do Local"] || "Geral",
-                    sistema: parseFloat(row["Quantidade"] || 0),
-                    cmc: parseFloat(row["CMC Unitário"] || 0)
-                }));
-                alert("Base Omie Carregada!");
-            };
-            reader.readAsBinaryString(e.target.files[0]);
-        });
-
-        document.getElementById('busca').oninput = function() {
-            const t = this.value.toLowerCase();
-            const res = document.getElementById('lista-busca');
-            res.innerHTML = ''; if(t.length < 2) return;
-            const filtrados = db.filter(i => (String(i.descricao).toLowerCase().includes(t) || String(i.codigo).toLowerCase().includes(t)));
-            if(filtrados.length === 0) {
-                res.innerHTML = `<button class="btn-new" onclick="abrirModalNovo('${t}')">➕ Novo Produto</button>`;
-                return;
-            }
-            filtrados.slice(0, 5).forEach(i => {
-                const d = document.createElement('div');
-                d.className = 'item-res';
-                d.innerHTML = `<strong>${i.codigo}</strong> - ${i.descricao}`;
-                d.onclick = () => { alternarCamera(true); abrirModal(i); };
-                res.appendChild(d);
-            });
-        };
-
-        function abrirModal(item) {
-            modoNovo = false; itemAtual = item;
-            document.getElementById('campos-novos').style.display = 'none';
-            document.getElementById('modal-titulo').innerText = item.descricao;
-            document.getElementById('modal-info').innerText = `Omie: ${item.sistema}`;
-            document.getElementById('modal-qtd').value = '';
-            document.getElementById('modal').style.display = 'flex';
-            setTimeout(() => document.getElementById('modal-qtd').focus(), 300);
-        }
-
-        function abrirModalNovo(termo) {
-            modoNovo = true;
-            document.getElementById('campos-novos').style.display = 'block';
-            document.getElementById('modal-titulo').innerText = "Novo Produto";
-            document.getElementById('new-codigo').value = isNaN(termo) ? "" : termo;
-            document.getElementById('new-nome').value = isNaN(termo) ? termo : "";
-            document.getElementById('modal').style.display = 'flex';
-        }
-
-        function fecharModal() { 
-            document.getElementById('modal').style.display = 'none';
-            alternarCamera(); // Religa a câmera automaticamente ao voltar
-        }
-
-        function confirmarContagem() {
-            const qtd = parseFloat(document.getElementById('modal-qtd').value);
-            if (isNaN(qtd)) return;
-            let registro;
-            if(modoNovo) {
-                registro = { "Código": document.getElementById('new-codigo').value || "NOVO", "Descrição": "[NOVO] " + (document.getElementById('new-nome').value || "Manual"), "Local": "MANUAL", "Estoque Sistema": 0, "CMC Unitário": 0, "Estoque Físico": qtd, "Diferença": qtd, "Total R$ Diff": 0, "Lote": document.getElementById('modal-lote').value || "N/A", "Validade": document.getElementById('modal-validade').value || "N/A", "Data": new Date().toLocaleString() };
-            } else {
-                const diff = qtd - itemAtual.sistema;
-                registro = { "Código": itemAtual.codigo, "Descrição": itemAtual.descricao, "Local": itemAtual.local, "Estoque Sistema": itemAtual.sistema, "CMC Unitário": itemAtual.cmc, "Estoque Físico": qtd, "Diferença": diff, "Total R$ Diff": (diff * itemAtual.cmc), "Lote": document.getElementById('modal-lote').value || "N/A", "Validade": document.getElementById('modal-validade').value || "N/A", "Data": new Date().toLocaleString() };
-            }
-            contados.unshift(registro);
-            localStorage.setItem('contados_v17_1', JSON.stringify(contados));
-            renderizarTabela(); 
-            document.getElementById('modal').style.display = 'none';
-            document.getElementById('busca').value = ''; 
-            document.getElementById('lista-busca').innerHTML = '';
-            alternarCamera(); // Religa a câmera para o próximo item
-        }
-
-        function renderizarTabela() {
-            const corpo = document.getElementById('corpo-tabela');
-            let totalDiferencaRS = 0;
-            corpo.innerHTML = contados.map(item => {
-                const d = parseFloat(item.Diferença);
-                totalDiferencaRS += parseFloat(item["Total R$ Diff"] || 0);
-                const classe = d > 0 ? 'diff-pos' : (d < 0 ? 'diff-neg' : '');
-                return `<tr><td class="td-left">${item.Descrição}</td><td class="${classe}">${item["Estoque Sistema"]} | ${item["Estoque Físico"]} | ${d > 0 ? '+'+d : d}</td><td>${item["CMC Unitário"].toFixed(2)}</td></tr>`;
-            }).join('');
-            document.getElementById('contagem-total').innerText = `Contados: ${contados.length}`;
-            document.getElementById('valor-total-diff').innerText = `Diff Total: R$ ${totalDiferencaRS.toFixed(2)}`;
-        }
-
-        function exportarExcel() {
-            const ws = XLSX.utils.json_to_sheet(contados);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-            XLSX.writeFile(wb, `AUDITORIA_V17_1.xlsx`);
-        }
-
-        function removerUltimo() { if(confirm("Remover última?")) { contados.shift(); localStorage.setItem('contados_v17_1', JSON.stringify(contados)); renderizarTabela(); } }
-        function limparDados() { if(confirm("Limpar tudo?")) { contados = []; localStorage.removeItem('contados_v17_1'); renderizarTabela(); } }
-
-        renderizarTabela();
-    </script>
-</body>
-</html>
+            if (btn.innerText.includes("ABRIR")) {
+                reader.style.display = "block";
+                try {
+                    await html5QrCode.start(
+                        { facingMode: "environment" }, 
+                        { fps: 15, qrbox: { width: 250, height: 150 } },
+                        (txt) => { 
+                            beep();
+                            pararCamera();
+                            const p = db.find(i => String(i.codigo) === txt);
+                            if(p) abrirModal(p); else abrirModalNovo(txt);
+                        }
+                    );
+                    btn.innerText = "🛑 PARAR CÂMERA";
+                    btn.style.
