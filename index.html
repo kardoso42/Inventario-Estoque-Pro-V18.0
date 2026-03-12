@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.7 - BUSCA E NOVO ITEM</title>
+    <title>Auditor Omie V-19.8 - CORREÇÃO FINAL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -20,6 +20,7 @@
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; overflow: hidden; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
         .item-detail { font-size: 11px; color: #666; margin-top: 3px; }
+        .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; background: white; }
@@ -76,6 +77,9 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
+            <div id="aviso-duplicado" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid #ffeeba;">
+                ⚠️ ATENÇÃO: Item já contado neste local!
+            </div>
             <label style="font-size: 11px; font-weight: bold;">NOME DO PRODUTO:</label>
             <input type="text" id="m-nome-edit" class="uppercase-input">
             
@@ -100,7 +104,7 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_7')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_8')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
@@ -147,6 +151,7 @@
             reader.readAsBinaryString(e.target.files[0]);
         };
 
+        // BUSCA COM BOTÃO NOVO E TRAVA DE DUPLICIDADE
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
@@ -163,8 +168,10 @@
 
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
+                    const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
                     const d = document.createElement('div'); d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><div class="item-detail">${i.local} | CÓD: ${i.codigo} | <span style="color:var(--blue); font-weight:bold;">SISTEMA: ${i.sistema}</span> | CMC: ${i.cmc.toFixed(2)}</div>`;
+                    d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">JÁ CONTADO</span>' : ''}
+                                   <div class="item-detail">${i.local} | CÓD: ${i.codigo} | <span style="color:var(--blue); font-weight:bold;">SISTEMA: ${i.sistema}</span></div>`;
                     d.onclick = () => abrirModal(i, false);
                     res.appendChild(d);
                 });
@@ -201,7 +208,12 @@
         }
 
         function abrirModal(item, isNovo) {
+            const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
+            if (jaContado && !confirm("ITEM JÁ CONTADO NESTE LOCAL. DESEJA CONTINUAR?")) return;
+
             itemAtual = item;
+            document.getElementById('aviso-duplicado').style.display = jaContado ? 'block' : 'none';
+            
             const inputNome = document.getElementById('m-nome-edit');
             inputNome.value = item.descricao.toUpperCase();
             inputNome.readOnly = !isNovo;
@@ -231,7 +243,7 @@
                 lote: document.getElementById('m-lote').value.toUpperCase(),
                 validade: document.getElementById('m-validade').value, data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_7', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_8', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
@@ -239,7 +251,7 @@
         function apagarUltimo() {
             if (contagens.length > 0 && confirm("APAGAR ÚLTIMA CONTAGEM?")) {
                 contagens.shift();
-                localStorage.setItem('contas_v19_7', JSON.stringify(contagens));
+                localStorage.setItem('contas_v19_8', JSON.stringify(contagens));
                 render();
             }
         }
@@ -262,7 +274,7 @@
             XLSX.writeFile(wb, "INVENTARIO_FINAL.xlsx");
         }
 
-        function limparTudo() { if(confirm("LIMPAR TODAS AS CONTAGENS?")) { localStorage.removeItem('contas_v19_7'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("LIMPAR TUDO?")) { localStorage.removeItem('contas_v19_8'); contagens = []; render(); } }
         render();
     </script>
 </body>
