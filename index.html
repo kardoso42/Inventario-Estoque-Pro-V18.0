@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.2 - BUSCA REFORÇADA</title>
+    <title>Auditor Omie V-19.3 - VERSÃO ESTÁVEL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,13 +12,17 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         button { width: 100%; padding: 12px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
         input, select, textarea { width: 100%; padding: 12px; margin: 4px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        textarea { height: 60px; font-family: sans-serif; resize: none; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-red { background: var(--red); color: white; }
         #reader { width: 100%; background: #000; border-radius: 8px; display: none; margin-bottom: 10px; overflow: hidden; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; }
+        .badge-alerta { background: #fff3cd; color: #856404; border: 1px solid #ffeeba; font-size: 10px; padding: 2px 4px; border-radius: 4px; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: center; }
         .input-novo-nome { font-weight: bold; color: var(--blue); border: 2px solid var(--orange) !important; background: #fffbea; }
     </style>
 </head>
@@ -29,6 +33,7 @@
         <input type="file" id="file-input" accept=".xlsx, .xls">
         <div style="display: flex; gap: 5px;">
             <select id="filtro-local"><option value="">📍 Local (Todos)</option></select>
+            <select id="filtro-familia"><option value="">📂 Família (Todos)</option></select>
         </div>
         <div id="info-carga" style="font-size: 12px; color: var(--gray); margin-top: 5px;">Aguardando planilha...</div>
     </div>
@@ -50,8 +55,8 @@
         <button class="btn-red" onclick="limparTudo()" style="font-size: 11px; opacity: 0.6; margin-top: 10px;">Limpar Tudo</button>
         
         <div style="overflow-x: auto; margin-top: 10px;">
-            <table id="tabela" style="width:100%; border-collapse: collapse; font-size:10px;">
-                <thead><tr style="background:#eee;"><th>Produto</th><th>Fis</th><th>Dif</th></tr></thead>
+            <table id="tabela">
+                <thead><tr><th>Produto</th><th>Fis</th><th>Dif</th></tr></thead>
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
@@ -59,75 +64,98 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h4 id="m-header" style="margin:0 0 10px 0; color:var(--blue);">Conferir Item</h4>
-            <label style="font-size: 11px; font-weight: bold;">NOME:</label>
+            <div id="aviso-duplicado" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; font-size:12px; border:1px solid #ffeeba;">
+                ⚠️ Item já contado neste local!
+            </div>
+            <label style="font-size: 11px; font-weight: bold;">NOME DO PRODUTO:</label>
             <input type="text" id="m-nome-edit">
-            
-            <div id="m-info-box" style="background: #f1f4f8; padding: 10px; border-radius: 8px; margin-bottom: 12px; border-left: 5px solid var(--blue);">
-                <p id="m-loc-fam" style="font-size: 11px; margin: 2px 0;"></p>
-                <p id="m-sist" style="font-size: 13px; margin: 4px 0; font-weight: bold;"></p>
+            <div id="m-info-box" style="background:#f1f4f8; padding:10px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue);">
+                <p id="m-loc-fam" style="font-size:11px; margin:2px 0;"></p>
+                <p id="m-sist" style="font-size:13px; margin:4px 0; font-weight:bold;"></p>
             </div>
-            
-            <label style="font-size: 12px; font-weight: bold;">Qtd Física:</label>
+            <label style="font-size:12px; font-weight:bold;">Qtd Física:</label>
             <input type="number" id="m-qtd" inputmode="decimal">
-            
-            <div style="display: flex; gap: 8px;">
-                <div style="flex: 1;">
-                    <label style="font-size: 11px; font-weight: bold;">Lote:</label>
-                    <input type="text" id="m-lote">
-                </div>
-                <div style="flex: 1;">
-                    <label style="font-size: 11px; font-weight: bold;">Validade:</label>
-                    <input type="tel" id="m-validade" placeholder="DD/MM/AAAA" maxlength="10">
-                </div>
+            <div style="display:flex; gap:8px;">
+                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote"></div>
+                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10"></div>
             </div>
-            
-            <button class="btn-green" onclick="salvar()" style="margin-top: 15px;">✅ CONFIRMAR</button>
-            <button onclick="fecharModal()" style="background:#eee; color:#333;">CANCELAR</button>
+            <label style="font-size:11px; font-weight:bold;">Obs:</label>
+            <textarea id="m-obs"></textarea>
+            <button class="btn-green" onclick="salvar()">✅ CONFIRMAR</button>
+            <button onclick="fecharModal()" style="background:#eee;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_2')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_3')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        document.getElementById('m-validade').addEventListener('input', function(e) {
+        // Máscara de Data
+        document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
             else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
             e.target.value = v;
-        });
+        };
 
         document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
             reader.onload = function(evt) {
                 const workbook = XLSX.read(evt.target.result, {type: 'binary'});
                 const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
-                baseDados = []; let locais = new Set();
+                baseDados = []; let locais = new Set(); let familias = new Set();
                 rows.forEach((row, index) => {
                     if (index > 2 && row[1]) {
-                        const cod = String(row[0] || '').trim();
                         const loc = String(row[12] || 'Sem Local').trim();
-                        locais.add(loc);
+                        const fam = String(row[2] || 'Sem Família').trim();
+                        locais.add(loc); familias.add(fam);
                         baseDados.push({
-                            codigo: cod, 
-                            descricao: String(row[1] || '').trim(), 
-                            local: loc,
+                            codigo: String(row[0] || '').trim().replace(/^0+/, ''), // Limpa zeros à esquerda
+                            descricao: String(row[1] || '').trim(),
+                            familia: fam, local: loc,
                             loteOriginal: String(row[4] || '').trim(),
                             validadeOriginal: String(row[5] || '').trim(),
-                            sistema: parseFloat(row[9] || 0),
-                            cmc: parseFloat(row[10] || 0)
+                            sistema: parseFloat(row[9] || 0), cmc: parseFloat(row[10] || 0)
                         });
                     }
                 });
                 const selL = document.getElementById('filtro-local');
+                const selF = document.getElementById('filtro-familia');
                 selL.innerHTML = '<option value="">📍 Local (Todos)</option>';
                 Array.from(locais).sort().forEach(l => selL.innerHTML += `<option value="${l}">${l}</option>`);
+                selF.innerHTML = '<option value="">📂 Família (Todos)</option>';
+                Array.from(familias).sort().forEach(f => selF.innerHTML += `<option value="${f}">${f}</option>`);
                 document.getElementById('info-carga').innerText = `✅ ${baseDados.length} itens carregados.`;
             };
             reader.readAsBinaryString(e.target.files[0]);
+        };
+
+        document.getElementById('busca-input').oninput = function() {
+            const t = this.value.toLowerCase().trim();
+            const lS = document.getElementById('filtro-local').value;
+            const fS = document.getElementById('filtro-familia').value;
+            const res = document.getElementById('resultados');
+            res.innerHTML = ''; if (t.length < 1) return;
+            const filtered = baseDados.filter(i => {
+                const matchTexto = i.descricao.toLowerCase().includes(t) || i.codigo.includes(t);
+                const matchLocal = lS === "" || i.local === lS;
+                const matchFam = fS === "" || i.familia === fS;
+                return matchTexto && matchLocal && matchFam;
+            });
+            filtered.slice(0, 15).forEach(i => {
+                const d = document.createElement('div'); d.className = 'item-res';
+                const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
+                d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">Já Contado</span>' : ''}<br><small>${i.local} | Cód: ${i.codigo}</small>`;
+                d.onclick = () => verificarAbrirModal(i, false); res.appendChild(d);
+            });
+            if (filtered.length === 0) {
+                const btn = document.createElement('button'); btn.className = 'btn-blue';
+                btn.innerHTML = `➕ Novo: "${this.value}"`;
+                btn.onclick = () => verificarAbrirModal({codigo: "NOVO", descricao: this.value.toUpperCase(), local: lS||"MANUAL", sistema:0, cmc:0}, true);
+                res.appendChild(btn);
+            }
         };
 
         async function controlarCamera() {
@@ -137,8 +165,13 @@
                 btn.innerText = "🛑 PARAR SCANNER";
                 if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
                 await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
-                    processarLeitura(txt.trim());
+                    const codLimpo = txt.trim().replace(/^0+/, '');
+                    const lS = document.getElementById('filtro-local').value;
+                    let item = baseDados.find(i => i.codigo === codLimpo && (lS === "" || i.local === lS));
+                    if (!item) item = baseDados.find(i => i.codigo === codLimpo); // Busca Global se não achar no filtro
                     desligarCam();
+                    if(item) verificarAbrirModal(item, false);
+                    else verificarAbrirModal({codigo: codLimpo, descricao: "NOVO", local: lS||"MANUAL", sistema:0, cmc:0}, true);
                 });
             } else { desligarCam(); }
         }
@@ -149,44 +182,19 @@
             document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER";
         }
 
-        // LÓGICA DE BUSCA MELHORADA
-        function processarLeitura(codigoLido) {
-            const localSelecionado = document.getElementById('filtro-local').value;
-            
-            // 1. Tenta achar no local selecionado
-            let item = baseDados.find(i => i.codigo === codigoLido && (localSelecionado === "" || i.local === localSelecionado));
-            
-            // 2. Se não achou, tenta achar em QUALQUER local da planilha
-            if (!item) {
-                item = baseDados.find(i => i.codigo === codigoLido);
-                if (item && localSelecionado !== "") {
-                    alert(`Aviso: Produto encontrado no local "${item.local}", mas você está filtrando por "${localSelecionado}".`);
-                }
-            }
-
-            if (item) {
-                abrirModal(item, false);
-            } else {
-                // 3. Se realmente não existe na planilha toda
-                abrirModal({
-                    codigo: codigoLido, descricao: "PRODUTO NOVO", 
-                    local: localSelecionado || "MANUAL", sistema: 0, cmc: 0,
-                    loteOriginal: '', validadeOriginal: ''
-                }, true);
-            }
-        }
-
-        function abrirModal(item, isNovo) {
+        function verificarAbrirModal(item, isNovo) {
+            const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
+            if (jaContado && !confirm("Item já contado. Continuar?")) return;
+            document.getElementById('aviso-duplicado').style.display = jaContado ? 'block' : 'none';
             itemAtual = item;
             const inputNome = document.getElementById('m-nome-edit');
             inputNome.value = item.descricao;
             inputNome.readOnly = !isNovo;
             inputNome.className = isNovo ? 'input-novo-nome' : '';
-            
             document.getElementById('m-loc-fam').innerText = `📍 Local: ${item.local} | Cód: ${item.codigo}`;
             document.getElementById('m-sist').innerText = "Estoque Sistema: " + item.sistema;
-            document.getElementById('m-lote').value = item.loteOriginal;
-            document.getElementById('m-validade').value = item.validadeOriginal;
+            document.getElementById('m-lote').value = item.loteOriginal || "";
+            document.getElementById('m-validade').value = item.validadeOriginal || "";
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
@@ -196,28 +204,23 @@
 
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
-            if (isNaN(q)) return alert("Informe a quantidade!");
-
+            if (isNaN(q)) return alert("Qtd inválida");
             contagens.unshift({
                 codigo: itemAtual.codigo, descricao: document.getElementById('m-nome-edit').value,
-                local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, 
-                dif: q - itemAtual.sistema, cmc_unitario: itemAtual.cmc, 
-                v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
-                lote: document.getElementById('m-lote').value,
-                validade: document.getElementById('m-validade').value,
+                local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, dif: q - itemAtual.sistema,
+                cmc_unitario: itemAtual.cmc, v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
+                lote: document.getElementById('m-lote').value, validade: document.getElementById('m-validade').value,
                 data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_2', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_3', JSON.stringify(contagens));
             render(); fecharModal();
+            document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
 
         function render() {
             const body = document.getElementById('tabela-body');
             let vT = 0; body.innerHTML = '';
-            contagens.forEach(i => {
-                vT += i.v_dif;
-                body.innerHTML += `<tr><td>${i.descricao}</td><td>${i.fisico}</td><td>${i.dif}</td></tr>`;
-            });
+            contagens.forEach(i => { vT += i.v_dif; body.innerHTML += `<tr><td>${i.descricao}</td><td>${i.fisico}</td><td>${i.dif}</td></tr>`; });
             document.getElementById('stats-contagem').innerText = "Itens: " + contagens.length;
             document.getElementById('stats-valor').innerText = "Impacto: R$ " + vT.toFixed(2);
         }
@@ -226,10 +229,10 @@
             const ws = XLSX.utils.json_to_sheet(contagens);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Auditoria");
-            XLSX.writeFile(wb, "Inventario_Omie.xlsx");
+            XLSX.writeFile(wb, "Inventario_Final.xlsx");
         }
 
-        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_2'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem('contas_v19_3'); contagens = []; render(); } }
         render();
     </script>
 </body>
