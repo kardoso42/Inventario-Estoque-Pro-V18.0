@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Omie Auditor V-17.0</title>
+    <title>Omie Auditor V-17.1</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
@@ -27,7 +27,8 @@
         .stats { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; margin-bottom: 10px; color: var(--primary); }
         .date-container { position: relative; display: flex; align-items: center; }
         .btn-cal { width: 45px; margin-left: 5px; background: #eee; font-size: 18px; border-radius: 8px; border: 1px solid #ddd; }
-        #reader { width: 100%; background: #000; border-radius: 8px; }
+        #reader { width: 100%; background: #000; border-radius: 8px; min-height: 100px; }
+        .cam-off { display: none; }
     </style>
 </head>
 <body>
@@ -41,7 +42,7 @@
     <div class="card">
         <h3>2. Scanner / Câmera</h3>
         <div id="reader"></div>
-        <button id="btn-start-cam" class="btn-cam">📷 Iniciar Câmera Traseira</button>
+        <button id="btn-cam-toggle" class="btn-cam">📷 Iniciar Câmera</button>
         <input type="text" id="busca" placeholder="Código ou Nome...">
         <div id="lista-busca"></div>
     </div>
@@ -106,26 +107,48 @@
 
     <script>
         let db = [];
-        let contados = JSON.parse(localStorage.getItem('contados_v17_0')) || [];
+        let contados = JSON.parse(localStorage.getItem('contados_v17_1')) || [];
         let itemAtual = null;
         let modoNovo = false;
+        let scannerAtivo = false;
+        const html5QrCode = new Html5Qrcode("reader");
 
-        // MÁSCARA DE DATA AUTOMÁTICA
+        // Máscara de data
         document.getElementById('modal-validade').addEventListener('input', function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 8) v = v.substring(0, 8);
-            if (v.length > 4) {
-                v = v.replace(/^(\d{2})(\d{2})(\d{2,4}).*/, '$1/$2/$3');
-            } else if (v.length > 2) {
-                v = v.replace(/^(\d{2})(\d{1,2}).*/, '$1/$2');
-            }
+            if (v.length > 4) v = v.replace(/^(\d{2})(\d{2})(\d{2,4}).*/, '$1/$2/$3');
+            else if (v.length > 2) v = v.replace(/^(\d{2})(\d{1,2}).*/, '$1/$2');
             e.target.value = v;
         });
 
         document.getElementById('cal-helper').addEventListener('change', function() {
-            const data = this.value.split('-').reverse().join('/');
-            document.getElementById('modal-validade').value = data;
+            document.getElementById('modal-validade').value = this.value.split('-').reverse().join('/');
         });
+
+        // Controle de Câmera Inteligente
+        async function alternarCamera(forceOff = false) {
+            const btn = document.getElementById('btn-cam-toggle');
+            if (scannerAtivo || forceOff) {
+                await html5QrCode.stop().catch(() => {});
+                scannerAtivo = false;
+                btn.innerText = "📷 Iniciar Câmera";
+                btn.style.background = "#34495e";
+                document.getElementById('reader').classList.add('cam-off');
+            } else {
+                document.getElementById('reader').classList.remove('cam-off');
+                html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: { width: 250, height: 150 } }, (txt) => {
+                    alternarCamera(true); // Desliga ao ler
+                    const p = db.find(i => String(i.codigo) === txt);
+                    if(p) abrirModal(p); else abrirModalNovo(txt);
+                });
+                scannerAtivo = true;
+                btn.innerText = "🛑 Parar Câmera";
+                btn.style.background = "#e74c3c";
+            }
+        }
+
+        document.getElementById('btn-cam-toggle').addEventListener('click', () => alternarCamera());
 
         document.getElementById('input-excel').addEventListener('change', function(e) {
             const reader = new FileReader();
@@ -139,10 +162,6 @@
                     sistema: parseFloat(row["Quantidade"] || 0),
                     cmc: parseFloat(row["CMC Unitário"] || 0)
                 }));
-                const locais = [...new Set(db.map(i => i.local))];
-                const select = document.getElementById('filtro-local');
-                select.innerHTML = '<option value="">Todos os Locais</option>';
-                locais.forEach(l => select.innerHTML += `<option value="${l}">${l}</option>`);
                 alert("Base Omie Carregada!");
             };
             reader.readAsBinaryString(e.target.files[0]);
@@ -150,19 +169,18 @@
 
         document.getElementById('busca').oninput = function() {
             const t = this.value.toLowerCase();
-            const loc = document.getElementById('filtro-local').value;
             const res = document.getElementById('lista-busca');
             res.innerHTML = ''; if(t.length < 2) return;
-            const filtrados = db.filter(i => (String(i.descricao).toLowerCase().includes(t) || String(i.codigo).toLowerCase().includes(t)) && (loc === "" || i.local === loc));
+            const filtrados = db.filter(i => (String(i.descricao).toLowerCase().includes(t) || String(i.codigo).toLowerCase().includes(t)));
             if(filtrados.length === 0) {
-                res.innerHTML = `<button class="btn-new" onclick="abrirModalNovo('${t}')">➕ Cadastrar como Novo</button>`;
+                res.innerHTML = `<button class="btn-new" onclick="abrirModalNovo('${t}')">➕ Novo Produto</button>`;
                 return;
             }
             filtrados.slice(0, 5).forEach(i => {
                 const d = document.createElement('div');
                 d.className = 'item-res';
                 d.innerHTML = `<strong>${i.codigo}</strong> - ${i.descricao}`;
-                d.onclick = () => abrirModal(i);
+                d.onclick = () => { alternarCamera(true); abrirModal(i); };
                 res.appendChild(d);
             });
         };
@@ -171,10 +189,8 @@
             modoNovo = false; itemAtual = item;
             document.getElementById('campos-novos').style.display = 'none';
             document.getElementById('modal-titulo').innerText = item.descricao;
-            document.getElementById('modal-info').innerText = `Omie: ${item.sistema} | CMC: R$ ${item.cmc.toFixed(2)}`;
+            document.getElementById('modal-info').innerText = `Omie: ${item.sistema}`;
             document.getElementById('modal-qtd').value = '';
-            document.getElementById('modal-validade').value = '';
-            document.getElementById('modal-lote').value = '';
             document.getElementById('modal').style.display = 'flex';
             setTimeout(() => document.getElementById('modal-qtd').focus(), 300);
         }
@@ -188,7 +204,10 @@
             document.getElementById('modal').style.display = 'flex';
         }
 
-        function fecharModal() { document.getElementById('modal').style.display = 'none'; }
+        function fecharModal() { 
+            document.getElementById('modal').style.display = 'none';
+            alternarCamera(); // Religa a câmera automaticamente ao voltar
+        }
 
         function confirmarContagem() {
             const qtd = parseFloat(document.getElementById('modal-qtd').value);
@@ -201,9 +220,12 @@
                 registro = { "Código": itemAtual.codigo, "Descrição": itemAtual.descricao, "Local": itemAtual.local, "Estoque Sistema": itemAtual.sistema, "CMC Unitário": itemAtual.cmc, "Estoque Físico": qtd, "Diferença": diff, "Total R$ Diff": (diff * itemAtual.cmc), "Lote": document.getElementById('modal-lote').value || "N/A", "Validade": document.getElementById('modal-validade').value || "N/A", "Data": new Date().toLocaleString() };
             }
             contados.unshift(registro);
-            localStorage.setItem('contados_v17_0', JSON.stringify(contados));
-            renderizarTabela(); fecharModal();
-            document.getElementById('busca').value = ''; document.getElementById('lista-busca').innerHTML = '';
+            localStorage.setItem('contados_v17_1', JSON.stringify(contados));
+            renderizarTabela(); 
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('busca').value = ''; 
+            document.getElementById('lista-busca').innerHTML = '';
+            alternarCamera(); // Religa a câmera para o próximo item
         }
 
         function renderizarTabela() {
@@ -219,36 +241,17 @@
             document.getElementById('valor-total-diff').innerText = `Diff Total: R$ ${totalDiferencaRS.toFixed(2)}`;
         }
 
-        function removerUltimo() {
-            if(contados.length > 0 && confirm("Remover última contagem?")) {
-                contados.shift();
-                localStorage.setItem('contados_v17_0', JSON.stringify(contados));
-                renderizarTabela();
-            }
-        }
-
         function exportarExcel() {
             const ws = XLSX.utils.json_to_sheet(contados);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Inventario");
-            XLSX.writeFile(wb, `AUDITORIA_V17.xlsx`);
+            XLSX.writeFile(wb, `AUDITORIA_V17_1.xlsx`);
         }
 
-        function limparDados() {
-            if(confirm("Limpar tudo?")) {
-                contados = []; localStorage.removeItem('contados_v17_0'); renderizarTabela();
-            }
-        }
+        function removerUltimo() { if(confirm("Remover última?")) { contados.shift(); localStorage.setItem('contados_v17_1', JSON.stringify(contados)); renderizarTabela(); } }
+        function limparDados() { if(confirm("Limpar tudo?")) { contados = []; localStorage.removeItem('contados_v17_1'); renderizarTabela(); } }
 
         renderizarTabela();
-        const html5QrCode = new Html5Qrcode("reader");
-        const camConfig = { fps: 15, qrbox: { width: 250, height: 150 } };
-        document.getElementById('btn-start-cam').addEventListener('click', () => {
-            html5QrCode.start({ facingMode: "environment" }, camConfig, (txt) => {
-                const p = db.find(i => String(i.codigo) === txt);
-                if(p) abrirModal(p); else abrirModalNovo(txt);
-            });
-        });
     </script>
 </body>
 </html>
