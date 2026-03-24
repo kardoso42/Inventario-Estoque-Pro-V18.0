@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-21.6 - AJUSTE PLANILHA REAL</title>
+    <title>Auditor Omie V-21.7 - ESTÁVEL VIE HOTEL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -18,6 +18,7 @@
         .uppercase-input { text-transform: uppercase; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
+        .btn-red { background: var(--red); color: white; }
         .btn-orange { background: var(--orange); color: white; }
         #resultados { max-height: 200px; overflow-y: auto; margin-top: 10px; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
@@ -30,7 +31,7 @@
 </head>
 <body>
 
-    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.6 - Mapeamento para VIE HOTEL</div>
+    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.7 - Tudo em Maiúsculas & Estável</div>
 
     <div class="dash-container">
         <div class="dash-card"><h4>Itens Lidos</h4><p id="dash-skus">0</p></div>
@@ -38,24 +39,25 @@
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. CARREGAR PLANILHA:</label>
+        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. IMPORTAR PLANILHA:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls">
-        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">Aguardando arquivo...</div>
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local"><option value="">📍 LOCAL (TODOS)</option></select>
             <select id="filtro-familia"><option value="">📂 FAMÍLIA (TODOS)</option></select>
         </div>
+        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">⚠️ Aguardando planilha...</div>
     </div>
 
     <div class="card">
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
         <div id="reader" style="display:none; width:100%; margin-bottom:10px;"></div>
-        <input type="text" id="busca-input" class="uppercase-input" placeholder="DIGITE NOME OU CÓDIGO...">
+        <input type="text" id="busca-input" class="uppercase-input" placeholder="BUSCAR PRODUTO...">
         <div id="resultados"></div>
     </div>
 
     <div class="card">
         <button class="btn-green" onclick="baixarExcel()">📥 EXPORTAR EXCEL</button>
+        <button class="btn-orange" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
         <div style="overflow-x: auto;">
             <table id="tabela">
                 <thead>
@@ -64,11 +66,12 @@
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
-        <button onclick="limparTudo()" style="width:auto; font-size: 10px; background:none; color:red; margin-top:10px;">Limpar Tudo</button>
+        <button class="btn-red" onclick="limparTudo()" style="font-size: 10px; opacity: 0.5; margin-top: 20px;">LIMPAR TUDO</button>
     </div>
 
     <div id="modal" class="modal">
         <div class="modal-content">
+            <h4 id="m-status-dup" style="display:none; color:var(--orange);">⚠️ ITEM JÁ CONTADO!</h4>
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
             <input type="text" id="m-nome-edit" class="uppercase-input">
             <div id="m-info-box" style="background:#f1f4f8; padding:10px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue);">
@@ -82,14 +85,14 @@
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input"></div>
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10"></div>
             </div>
-            <button class="btn-green" onclick="salvar()" style="margin-top:15px; font-size:16px;">✅ SALVAR</button>
-            <button onclick="fecharModal()" style="background:#eee; margin-top:5px;">CANCELAR</button>
+            <button class="btn-green" onclick="salvar()" style="margin-top:15px;">✅ SALVAR</button>
+            <button onclick="fecharModal()" style="background:#eee;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v21_6';
+        const STORAGE_KEY = 'auditoria_omie_v21_7';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
@@ -113,10 +116,11 @@
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
                 
-                // Mapeamento específico baseado na planilha enviada
                 let idxCod = -1, idxDesc = -1, idxFam = -1, idxUnid = -1, idxSist = -1, idxCmc = -1, idxLoc = -1;
+                let headerRowIndex = -1;
 
-                for(let r=0; r<Math.min(rows.length, 10); r++){
+                // Acha o cabeçalho real ignorando as linhas vazias do Omie
+                for(let r=0; r < Math.min(rows.length, 15); r++){
                     let row = rows[r];
                     if(!row) continue;
                     row.forEach((cell, c) => {
@@ -129,17 +133,15 @@
                         if(txt.includes("CMC UNITÁRIO")) idxCmc = c;
                         if(txt.includes("DESCRIÇÃO DO LOCAL")) idxLoc = c;
                     });
-                    if(idxCod !== -1 && idxDesc !== -1) break;
+                    if(idxCod !== -1 && idxDesc !== -1) { headerRowIndex = r; break; }
                 }
 
-                if(idxCod === -1 || idxDesc === -1) {
-                    alert("Erro: Não encontrei as colunas da planilha VIE HOTEL.");
-                    return;
-                }
+                if(headerRowIndex === -1) return alert("Erro: Não encontrei as colunas 'Código do Produto' e 'Descrição'.");
 
                 baseDados = []; let locais = new Set(); let familias = new Set();
-                rows.forEach((row, index) => {
-                    if (row[idxDesc] && row[idxCod] && String(row[idxCod]).toUpperCase() !== "CÓDIGO DO PRODUTO") {
+                for(let r = headerRowIndex + 1; r < rows.length; r++) {
+                    let row = rows[r];
+                    if (row[idxDesc] && row[idxCod]) {
                         const loc = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
                         const fam = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
                         locais.add(loc); familias.add(fam);
@@ -150,10 +152,10 @@
                             sistema: parseFloat(row[idxSist] || 0), cmc: parseFloat(row[idxCmc] || 0)
                         });
                     }
-                });
+                }
                 
                 popularFiltros(locais, familias);
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} Itens de VIE HOTEL carregados!`;
+                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS CARREGADOS!`;
                 document.getElementById('info-carga').style.color = "var(--green)";
             };
             reader.readAsArrayBuffer(e.target.files[0]);
@@ -171,10 +173,16 @@
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
+            const fS = document.getElementById('filtro-familia').value;
             const res = document.getElementById('resultados');
             res.innerHTML = ''; if (t.length < 1) return;
 
-            const filtered = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
+            const filtered = baseDados.filter(i => {
+                const matchTexto = i.descricao.includes(t) || i.codigo.includes(t);
+                const matchLocal = lS === "" || i.local === lS;
+                const matchFam = fS === "" || i.familia === fS;
+                return matchTexto && matchLocal && matchFam;
+            });
 
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
@@ -193,6 +201,8 @@
         };
 
         function abrirModal(item, isNovo) {
+            const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
+            if (jaContado && !confirm("Item já contado. Continuar?")) return;
             itemAtual = item;
             document.getElementById('m-un-label').innerText = item.unidade;
             document.getElementById('m-nome-edit').value = item.descricao;
@@ -209,7 +219,7 @@
 
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
-            if (isNaN(q)) return alert("Qtd inválida");
+            if (isNaN(q)) return alert("Informe a quantidade!");
             contagens.unshift({...itemAtual, fisico: q, dif: q - itemAtual.sistema, v_dif: (q - itemAtual.sistema) * itemAtual.cmc, data: new Date().toLocaleString()});
             localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens));
             render(); fecharModal();
@@ -241,6 +251,7 @@
         }
 
         function desligarCam() { if (html5QrCode) html5QrCode.stop(); document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; }
+        function apagarUltimo() { if (contagens.length > 0 && confirm("Apagar último?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
         function baixarExcel() { const ws = XLSX.utils.json_to_sheet(contagens); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "AUDITORIA"); XLSX.writeFile(wb, "INVENTARIO.xlsx"); }
         function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
         render();
