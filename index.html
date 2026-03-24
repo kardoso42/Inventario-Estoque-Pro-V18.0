@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-19.8 - CORREÇÃO FINAL</title>
+    <title>Auditor Omie V-19.8 - ESTÁVEL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -104,7 +104,7 @@
 
     <script>
         let baseDados = [];
-        let contagens = JSON.parse(localStorage.getItem('contas_v19_8')) || [];
+        let contagens = JSON.parse(localStorage.getItem('contas_v19_8_final')) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
@@ -151,7 +151,6 @@
             reader.readAsBinaryString(e.target.files[0]);
         };
 
-        // BUSCA COM BOTÃO NOVO E TRAVA DE DUPLICIDADE
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
@@ -243,7 +242,7 @@
                 lote: document.getElementById('m-lote').value.toUpperCase(),
                 validade: document.getElementById('m-validade').value, data: new Date().toLocaleString()
             });
-            localStorage.setItem('contas_v19_8', JSON.stringify(contagens));
+            localStorage.setItem('contas_v19_8_final', JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
@@ -251,7 +250,7 @@
         function apagarUltimo() {
             if (contagens.length > 0 && confirm("APAGAR ÚLTIMA CONTAGEM?")) {
                 contagens.shift();
-                localStorage.setItem('contas_v19_8', JSON.stringify(contagens));
+                localStorage.setItem('contas_v19_8_final', JSON.stringify(contagens));
                 render();
             }
         }
@@ -274,7 +273,7 @@
             XLSX.writeFile(wb, "INVENTARIO_FINAL.xlsx");
         }
 
-        function limparTudo() { if(confirm("LIMPAR TUDO?")) { localStorage.removeItem('contas_v19_8'); contagens = []; render(); } }
+        function limparTudo() { if(confirm("LIMPAR TUDO?")) { localStorage.removeItem('contas_v19_8_final'); contagens = []; render(); } }
         render();
     </script>
 </body>
