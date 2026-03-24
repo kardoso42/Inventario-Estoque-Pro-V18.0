@@ -3,37 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-22.1 - CORREÇÃO BOTÃO</title>
+    <title>Auditor Omie V-22.2 - IMPORTAÇÃO TOTAL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --blue: #004a8d; --green: #2ecc71; --red: #e74c3c; --gray: #7f8c8d; --orange: #f39c12; --bg: #f4f7f9; }
         body { font-family: sans-serif; margin: 0; padding: 10px; background: var(--bg); color: #333; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
-        
         .dash-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
         .dash-card p { margin: 5px 0 0; font-size: 16px; font-weight: bold; color: var(--blue); }
-        
         button { width: 100%; padding: 14px; margin: 8px 0; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 15px; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green) !important; color: white !important; }
         .btn-orange { background: var(--orange); color: white; }
-        
-        /* CORES DA TABELA */
         .diff-neg { color: var(--red) !important; font-weight: bold; }
         .diff-pos { color: var(--blue) !important; font-weight: bold; }
         .diff-zero { color: var(--green) !important; font-weight: bold; }
-        
         .uppercase-input { text-transform: uppercase; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
-        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 10000; justify-content: center; align-items: center; }
-        .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; position: relative; }
-        
+        .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
         .unidade-badge { background: #eee; color: #333; padding: 15px; border-radius: 8px; font-weight: bold; margin-left: 5px; border: 1px solid #ddd; }
-        
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
     </style>
@@ -46,13 +38,13 @@
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold;">1. CARREGAR PLANILHA:</label>
-        <input type="file" id="file-input" accept=".xlsx, .xls">
+        <label style="font-size: 11px; font-weight: bold;">1. CARREGAR PLANILHA (Excel ou CSV):</label>
+        <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local"><option value="">📍 LOCAL (TODOS)</option></select>
             <select id="filtro-familia"><option value="">📂 FAMÍLIA (TODOS)</option></select>
         </div>
-        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">⚠️ Aguardando arquivo...</div>
+        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">Aguardando arquivo...</div>
     </div>
 
     <div class="card">
@@ -63,7 +55,7 @@
     </div>
 
     <div class="card">
-        <button class="btn-green" onclick="baixarExcel()" style="margin-bottom:5px;">📥 EXPORTAR EXCEL</button>
+        <button class="btn-green" onclick="baixarExcel()">📥 EXPORTAR EXCEL</button>
         <button class="btn-orange" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
         <div style="overflow-x: auto;">
             <table id="tabela">
@@ -78,63 +70,50 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h4 id="m-status-dup" style="display:none; color:var(--orange); margin:0 0 10px 0;">⚠️ JÁ CONTADO!</h4>
-            
+            <h4 id="m-status-dup" style="display:none; color:var(--orange);">⚠️ JÁ CONTADO!</h4>
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
             <input type="text" id="m-nome-edit" class="uppercase-input" style="width:100%; padding:10px; box-sizing:border-box;">
-            
             <div class="m-info-box">
                 <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
                 <p id="m-loc-cod" style="font-size:11px; margin:2px 0; color:#555;"></p>
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
             </div>
-
             <label style="font-size:12px; font-weight:bold;">QUANTIDADE FÍSICA:</label>
             <div style="display:flex; align-items:center; margin-bottom:15px;">
                 <input type="number" id="m-qtd" inputmode="decimal" style="flex:1; padding:15px; font-size:22px; font-weight:bold; border:2px solid var(--blue); border-radius:8px;">
                 <span id="m-un-display" class="unidade-badge">UN</span>
             </div>
-
             <div style="display:flex; gap:8px;">
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input" style="width:100%; padding:10px; box-sizing:border-box;"></div>
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; box-sizing:border-box;"></div>
             </div>
-            
-            <button type="button" class="btn-green" onclick="salvar()" style="margin-top:20px; font-size:18px; display:block !important; visibility:visible !important;">✅ SALVAR AGORA</button>
+            <button type="button" class="btn-green" onclick="salvar()" style="margin-top:20px; font-size:18px;">✅ SALVAR AGORA</button>
             <button type="button" onclick="fecharModal()" style="background:#eee; margin-top:5px;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v22_1';
+        const STORAGE_KEY = 'auditoria_omie_v22_2';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        document.getElementById('m-validade').oninput = function(e) {
-            let v = e.target.value.replace(/\D/g, '');
-            if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
-            else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
-            e.target.value = v;
-        };
-
-        document.querySelectorAll('.uppercase-input').forEach(el => {
-            el.addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
-        });
-
         document.getElementById('file-input').onchange = function(e) {
+            const file = e.target.files[0];
             const reader = new FileReader();
             reader.onload = function(evt) {
                 const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                const sheet = workbook.Sheets[workbook.SheetNames[0]];
+                const rows = XLSX.utils.sheet_to_json(sheet, {header: 1, raw: false});
                 
                 let idxCod=-1, idxDesc=-1, idxFam=-1, idxUnid=-1, idxSist=-1, idxCmc=-1, idxLoc=-1, idxGtin=-1, hRow=-1;
 
-                for(let r=0; r<15; r++){
+                // Varre as linhas para achar o cabeçalho real do VIE HOTEL
+                for(let r=0; r<20; r++){
                     if(!rows[r]) continue;
                     rows[r].forEach((cell, c) => {
-                        let txt = String(cell).toUpperCase().trim();
+                        let txt = String(cell || "").toUpperCase().trim();
                         if(txt.includes("CÓDIGO DO PRODUTO")) idxCod = c;
                         if(txt.includes("DESCRIÇÃO DO PRODUTO")) idxDesc = c;
                         if(txt.includes("FAMÍLIA DE PRODUTO")) idxFam = c;
@@ -147,57 +126,37 @@
                     if(idxCod !== -1 && idxDesc !== -1) { hRow = r; break; }
                 }
 
-                if(hRow === -1) return alert("Erro no cabeçalho!");
+                if(hRow === -1) return alert("Erro: Cabeçalho não encontrado!");
 
-                baseDados = []; let locais = new Set(); let familias = new Set();
+                baseDados = []; let locs = new Set(); let fams = new Set();
                 for(let r=hRow+1; r<rows.length; r++) {
                     let row = rows[r];
-                    if (row[idxDesc] && row[idxCod]) {
-                        const loc = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
-                        const fam = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
-                        locais.add(loc); familias.add(fam);
+                    if (row && row[idxDesc] && row[idxCod]) {
+                        const l = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
+                        const f = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
+                        locs.add(l); fams.add(f);
                         baseDados.push({
-                            codigo: String(row[idxCod] || '').trim().toUpperCase(),
-                            descricao: String(row[idxDesc] || '').trim().toUpperCase(),
+                            codigo: String(row[idxCod]).trim().toUpperCase(),
+                            descricao: String(row[idxDesc]).trim().toUpperCase(),
                             gtin: String(row[idxGtin] || 'N/A').trim(),
-                            familia: fam, local: loc, unidade: String(row[idxUnid] || 'UN').toUpperCase(),
-                            sistema: parseFloat(row[idxSist] || 0), cmc: parseFloat(row[idxCmc] || 0)
+                            familia: f, local: l, unidade: String(row[idxUnid] || 'UN').toUpperCase(),
+                            sistema: parseFloat(String(row[idxSist] || "0").replace(',','.')),
+                            cmc: parseFloat(String(row[idxCmc] || "0").replace(',','.'))
                         });
                     }
                 }
-                popularFiltros(locais, familias);
+                
+                const sL = document.getElementById('filtro-local');
+                const sF = document.getElementById('filtro-familia');
+                sL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
+                Array.from(locs).sort().forEach(i => sL.innerHTML += `<option value="${i}">${i}</option>`);
+                sF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
+                Array.from(fams).sort().forEach(i => sF.innerHTML += `<option value="${i}">${i}</option>`);
+                
                 document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS CARREGADOS!`;
                 document.getElementById('info-carga').style.color = "var(--green)";
             };
-            reader.readAsArrayBuffer(e.target.files[0]);
-        };
-
-        function popularFiltros(l, f) {
-            const sL = document.getElementById('filtro-local');
-            const sF = document.getElementById('filtro-familia');
-            sL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
-            Array.from(l).sort().forEach(i => sL.innerHTML += `<option value="${i}">${i}</option>`);
-            sF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
-            Array.from(f).sort().forEach(i => sF.innerHTML += `<option value="${i}">${i}</option>`);
-        }
-
-        document.getElementById('busca-input').oninput = function() {
-            const t = this.value.toUpperCase().trim();
-            const lS = document.getElementById('filtro-local').value;
-            const res = document.getElementById('resultados');
-            res.innerHTML = ''; if (t.length < 1) return;
-            const filtered = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
-            filtered.slice(0, 15).forEach(i => {
-                const d = document.createElement('div'); d.className = 'item-res';
-                d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
-                d.onclick = () => abrirModal(i, false); res.appendChild(d);
-            });
-            if (filtered.length === 0) {
-                const btn = document.createElement('button'); btn.className = 'btn-blue';
-                btn.innerHTML = `➕ NOVO: "${t}"`;
-                btn.onclick = () => abrirModal({codigo: "NOVO", gtin: "N/A", descricao: t, local: lS||"MANUAL", sistema:0, cmc:0, unidade: "UN"}, true);
-                res.appendChild(btn);
-            }
+            reader.readAsArrayBuffer(file);
         };
 
         function abrirModal(item, isNovo) {
@@ -205,69 +164,61 @@
             const ja = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
             document.getElementById('m-status-dup').style.display = ja ? 'block' : 'none';
             document.getElementById('m-gtin').innerText = "GTIN: " + item.gtin;
-            document.getElementById('m-un-display').innerText = item.unidade || 'UN';
+            document.getElementById('m-un-display').innerText = item.unidade;
             document.getElementById('m-nome-edit').value = item.descricao;
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
-            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade || 'UN'}`;
+            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
         }
 
-        function fecharModal() { document.getElementById('modal').style.display = "none"; }
-
         function salvar() {
             const qVal = document.getElementById('m-qtd').value;
-            if (!qVal || qVal === "") return alert("Informe a quantidade!");
+            if(!qVal) return alert("Quantidade!");
             const q = parseFloat(qVal);
-            
-            const novaContagem = {
-                codigo: itemAtual.codigo,
-                descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
-                unidade: itemAtual.unidade || 'UN',
-                local: itemAtual.local,
-                sistema: itemAtual.sistema,
-                fisico: q,
-                dif: q - itemAtual.sistema,
-                cmc_unitario: itemAtual.cmc || 0,
+            contagens.unshift({
+                ...itemAtual, fisico: q, dif: q - itemAtual.sistema,
                 v_dif: (q - itemAtual.sistema) * (itemAtual.cmc || 0),
                 lote: document.getElementById('m-lote').value.toUpperCase(),
-                validade: document.getElementById('m-validade').value,
-                data: new Date().toLocaleString()
-            };
-
-            contagens.unshift(novaContagem);
+                validade: document.getElementById('m-validade').value, data: new Date().toLocaleString()
+            });
             localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens));
-            render();
-            fecharModal();
-            document.getElementById('busca-input').value = '';
-            document.getElementById('resultados').innerHTML = '';
+            render(); fecharModal();
+            document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
         }
 
         function render() {
-            const b = document.getElementById('tabela-body');
-            let pT = 0; b.innerHTML = '';
+            const body = document.getElementById('tabela-body');
+            let pT = 0; body.innerHTML = '';
             contagens.forEach(i => {
                 pT += i.fisico;
-                let c = i.dif < 0 ? 'diff-neg' : (i.dif === 0 ? 'diff-zero' : 'diff-pos');
-                b.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${c}">${i.dif}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
+                let cl = i.dif < 0 ? 'diff-neg' : (i.dif === 0 ? 'diff-zero' : 'diff-pos');
+                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${cl}">${i.dif}</td><td>${(i.cmc||0).toFixed(2)}</td></tr>`;
             });
             document.getElementById('dash-skus').innerText = contagens.length;
             document.getElementById('dash-pecas').innerText = pT;
         }
 
-        async function controlarCamera() {
-            const btn = document.getElementById('btn-cam');
-            if (btn.innerText.includes("LIGAR")) {
-                document.getElementById('reader').style.display = "block";
-                btn.innerText = "🛑 PARAR"; if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
-                await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
-                    const cod = txt.trim().toUpperCase();
-                    const item = baseDados.find(i => i.codigo === cod) || {codigo: cod, gtin: "N/A", descricao: "NOVO PRODUTO", local: "SCAN", sistema: 0, cmc: 0, unidade: "UN"};
-                    desligarCam(); abrirModal(item, item.codigo === "NOVO");
-                });
-            } else { desligarCam(); }
+        document.getElementById('busca-input').oninput = function() {
+            const t = this.value.toUpperCase().trim();
+            const lS = document.getElementById('filtro-local').value;
+            const res = document.getElementById('resultados');
+            res.innerHTML = ''; if (t.length < 1) return;
+            const fil = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
+            fil.slice(0, 15).forEach(i => {
+                const d = document.createElement('div'); d.className = 'item-res';
+                d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
+                d.onclick = () => abrirModal(i, false); res.appendChild(d);
+            });
         }
 
-        function desligarCam() { if (html5QrCode) html5QrCode.stop(); document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR
+        function fecharModal() { document.getElementById('modal').style.display = "none"; }
+        function apagarUltimo() { if(contagens.length > 0 && confirm("Apagar?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
+        function baixarExcel() { const ws = XLSX.utils.json_to_sheet(contagens); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "AUDITORIA"); XLSX.writeFile(wb, "INVENTARIO.xlsx"); }
+        function limparTudo() { if(confirm("Limpar?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
+        render();
+    </script>
+</body>
+</html>
