@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-21.5 - DIAGNÓSTICO</title>
+    <title>Auditor Omie V-21.6 - AJUSTE PLANILHA REAL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -25,12 +25,12 @@
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 6px 4px; text-align: center; }
-        .log-carga { font-size: 10px; color: #666; background: #eee; padding: 5px; border-radius: 5px; margin-top: 5px; white-space: pre-wrap; display: none; }
+        .diff-neg { color: var(--red); font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.5 - Modo Diagnóstico Ativado</div>
+    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.6 - Mapeamento para VIE HOTEL</div>
 
     <div class="dash-container">
         <div class="dash-card"><h4>Itens Lidos</h4><p id="dash-skus">0</p></div>
@@ -38,10 +38,9 @@
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. SELECIONE A PLANILHA:</label>
+        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. CARREGAR PLANILHA:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls">
         <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">Aguardando arquivo...</div>
-        <div id="log-carga" class="log-carga"></div>
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local"><option value="">📍 LOCAL (TODOS)</option></select>
             <select id="filtro-familia"><option value="">📂 FAMÍLIA (TODOS)</option></select>
@@ -65,7 +64,7 @@
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
-        <button onclick="limparTudo()" style="width:auto; font-size: 10px; background:none; color:red; text-decoration:underline;">Limpar Tudo</button>
+        <button onclick="limparTudo()" style="width:auto; font-size: 10px; background:none; color:red; margin-top:10px;">Limpar Tudo</button>
     </div>
 
     <div id="modal" class="modal">
@@ -77,7 +76,7 @@
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
                 <p id="m-cmc-val" style="font-size:11px; margin:2px 0; color:#666;"></p>
             </div>
-            <label style="font-size:12px; font-weight:bold;">Quantidade Física:</label>
+            <label style="font-size:12px; font-weight:bold;">Qtd Física (<span id="m-un-label">UN</span>):</label>
             <input type="number" id="m-qtd" inputmode="decimal" style="width:100%; padding:15px; font-size:20px;">
             <div style="display:flex; gap:8px; margin-top:10px;">
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input"></div>
@@ -90,10 +89,21 @@
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v21_5';
+        const STORAGE_KEY = 'auditoria_omie_v21_6';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
+
+        document.getElementById('m-validade').oninput = function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
+            else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
+            e.target.value = v;
+        };
+
+        document.querySelectorAll('.uppercase-input').forEach(el => {
+            el.addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
+        });
 
         document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
@@ -103,58 +113,47 @@
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
                 
-                let log = "--- DIAGNÓSTICO DE COLUNAS ---\n";
-                let idxCod = -1, idxDesc = -1, idxFam = -1, idxSist = -1, idxCmc = -1, idxLoc = -1;
+                // Mapeamento específico baseado na planilha enviada
+                let idxCod = -1, idxDesc = -1, idxFam = -1, idxUnid = -1, idxSist = -1, idxCmc = -1, idxLoc = -1;
 
-                // Varre as 20 primeiras linhas para achar os nomes
-                for(let r=0; r<Math.min(rows.length, 20); r++){
+                for(let r=0; r<Math.min(rows.length, 10); r++){
                     let row = rows[r];
                     if(!row) continue;
                     row.forEach((cell, c) => {
                         let txt = String(cell).toUpperCase().trim();
-                        if(txt === "CÓDIGO" || txt === "CODIGO") idxCod = c;
-                        if(txt === "DESCRIÇÃO" || txt === "DESCRICAO") idxDesc = c;
-                        if(txt === "FAMÍLIA" || txt === "FAMILIA") idxFam = c;
-                        if(txt === "SALDO ATUAL" || txt === "SALDO") idxSist = c;
-                        if(txt.includes("CMC") || txt.includes("UNITÁRIO")) idxCmc = c;
-                        if(txt === "LOCAL") idxLoc = c;
+                        if(txt.includes("CÓDIGO DO PRODUTO")) idxCod = c;
+                        if(txt.includes("DESCRIÇÃO DO PRODUTO")) idxDesc = c;
+                        if(txt.includes("FAMÍLIA DE PRODUTO")) idxFam = c;
+                        if(txt.includes("UNIDADE")) idxUnid = c;
+                        if(txt === "QUANTIDADE") idxSist = c;
+                        if(txt.includes("CMC UNITÁRIO")) idxCmc = c;
+                        if(txt.includes("DESCRIÇÃO DO LOCAL")) idxLoc = c;
                     });
-                    if(idxCod !== -1 && idxDesc !== -1) {
-                        log += `Cabeçalho encontrado na linha ${r+1}\n`;
-                        break;
-                    }
+                    if(idxCod !== -1 && idxDesc !== -1) break;
                 }
 
-                log += `Código: ${idxCod !== -1 ? 'OK (Col '+idxCod+')' : 'NÃO ACHOU'}\n`;
-                log += `Descrição: ${idxDesc !== -1 ? 'OK (Col '+idxDesc+')' : 'NÃO ACHOU'}\n`;
-                log += `Local: ${idxLoc !== -1 ? 'OK (Col '+idxLoc+')' : 'NÃO ACHOU'}\n`;
-                
-                const logDiv = document.getElementById('log-carga');
-                logDiv.style.display = "block";
-                logDiv.innerText = log;
-
                 if(idxCod === -1 || idxDesc === -1) {
-                    document.getElementById('info-carga').innerText = "❌ Colunas essenciais não encontradas.";
+                    alert("Erro: Não encontrei as colunas da planilha VIE HOTEL.");
                     return;
                 }
 
                 baseDados = []; let locais = new Set(); let familias = new Set();
                 rows.forEach((row, index) => {
-                    if (row[idxDesc] && row[idxCod] && index > 0) {
+                    if (row[idxDesc] && row[idxCod] && String(row[idxCod]).toUpperCase() !== "CÓDIGO DO PRODUTO") {
                         const loc = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
                         const fam = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
                         locais.add(loc); familias.add(fam);
                         baseDados.push({
                             codigo: String(row[idxCod] || '').trim().toUpperCase(),
                             descricao: String(row[idxDesc] || '').trim().toUpperCase(),
-                            familia: fam, local: loc,
+                            familia: fam, local: loc, unidade: String(row[idxUnid] || 'UN').toUpperCase(),
                             sistema: parseFloat(row[idxSist] || 0), cmc: parseFloat(row[idxCmc] || 0)
                         });
                     }
                 });
                 
                 popularFiltros(locais, familias);
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} Itens carregados com sucesso!`;
+                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} Itens de VIE HOTEL carregados!`;
                 document.getElementById('info-carga').style.color = "var(--green)";
             };
             reader.readAsArrayBuffer(e.target.files[0]);
@@ -179,24 +178,27 @@
 
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
+                    const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
                     const d = document.createElement('div'); d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | Cód: ${i.codigo}</div>`;
+                    d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">JÁ CONTADO</span>' : ''}
+                                   <div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
                     d.onclick = () => abrirModal(i, false); res.appendChild(d);
                 });
             } else {
                 const btn = document.createElement('button'); btn.className = 'btn-blue';
-                btn.innerHTML = `➕ NOVO: "${t}"`;
-                btn.onclick = () => abrirModal({codigo: "NOVO", descricao: t, local: lS||"MANUAL", sistema:0, cmc:0}, true);
+                btn.innerHTML = `➕ CADASTRAR NOVO: "${t}"`;
+                btn.onclick = () => abrirModal({codigo: "NOVO", descricao: t, local: lS||"MANUAL", sistema:0, cmc:0, unidade: "UN"}, true);
                 res.appendChild(btn);
             }
         };
 
         function abrirModal(item, isNovo) {
             itemAtual = item;
+            document.getElementById('m-un-label').innerText = item.unidade;
             document.getElementById('m-nome-edit').value = item.descricao;
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
-            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema}`;
+            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
             document.getElementById('m-cmc-val').innerText = `CMC: R$ ${item.cmc.toFixed(2)}`;
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
@@ -219,7 +221,7 @@
             let vT = 0, pT = 0; body.innerHTML = '';
             contagens.forEach(i => {
                 vT += i.v_dif; pT += i.fisico;
-                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td>${i.dif}</td><td>${i.cmc.toFixed(2)}</td></tr>`;
+                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${i.dif < 0 ? 'diff-neg' : ''}">${i.dif}</td><td>${i.cmc.toFixed(2)}</td></tr>`;
             });
             document.getElementById('dash-skus').innerText = contagens.length;
             document.getElementById('dash-pecas').innerText = pT;
@@ -232,7 +234,7 @@
                 btn.innerText = "🛑 PARAR"; if (!html5QrCode) html5QrCode = new Html5Qrcode("reader");
                 await html5QrCode.start({ facingMode: "environment" }, { fps: 20, qrbox: 250 }, (txt) => {
                     const cod = txt.trim().toUpperCase();
-                    const item = baseDados.find(i => i.codigo === cod) || {codigo: cod, descricao: "NOVO", local: "SCAN", sistema: 0, cmc: 0};
+                    const item = baseDados.find(i => i.codigo === cod) || {codigo: cod, descricao: "NOVO", local: "SCAN", sistema: 0, cmc: 0, unidade: "UN"};
                     desligarCam(); abrirModal(item, item.codigo === "NOVO");
                 });
             } else { desligarCam(); }
