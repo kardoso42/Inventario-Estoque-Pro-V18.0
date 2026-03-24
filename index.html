@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-21.9 - CORES E UNIDADES</title>
+    <title>Auditor Omie V-22.0 - FINAL FIX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -11,7 +11,6 @@
         body { font-family: sans-serif; margin: 0; padding: 10px; background: var(--bg); color: #333; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         
-        /* Dashboard */
         .dash-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
         .dash-card p { margin: 5px 0 0; font-size: 16px; font-weight: bold; color: var(--blue); }
@@ -22,14 +21,11 @@
         .btn-green { background: var(--green); color: white; }
         .btn-orange { background: var(--orange); color: white; }
         
-        /* Cores na Tabela */
         .diff-neg { color: var(--red); font-weight: bold; }
         .diff-pos { color: var(--blue); font-weight: bold; }
         .diff-zero { color: var(--green); font-weight: bold; }
         
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
-        
-        /* Modal */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 999; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
@@ -48,7 +44,7 @@
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. CARREGAR PLANILHA:</label>
+        <label style="font-size: 11px; font-weight: bold; color: var(--blue);">1. CARREGAR PLANILHA VIE HOTEL:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls">
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local"><option value="">📍 LOCAL (TODOS)</option></select>
@@ -60,7 +56,7 @@
     <div class="card">
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
         <div id="reader" style="display:none; width:100%; margin-bottom:10px;"></div>
-        <input type="text" id="busca-input" class="uppercase-input" placeholder="BUSCAR PRODUTO...">
+        <input type="text" id="busca-input" class="uppercase-input" placeholder="BUSCAR PRODUTO OU CÓDIGO...">
         <div id="resultados" style="max-height: 200px; overflow-y: auto;"></div>
     </div>
 
@@ -82,7 +78,7 @@
         <div class="modal-content">
             <h4 id="m-status-dup" style="display:none; color:var(--orange); margin:0 0 10px 0;">⚠️ JÁ CONTADO NESTE LOCAL!</h4>
             <label style="font-size: 11px; font-weight: bold; color:var(--gray)">PRODUTO:</label>
-            <input type="text" id="m-nome-edit" class="uppercase-input" style="font-weight:bold; color:var(--blue);">
+            <input type="text" id="m-nome-edit" class="uppercase-input" style="font-weight:bold; color:var(--blue); width:100%; padding:8px; border-radius:5px; border:1px solid #ddd;">
             
             <div class="m-info-box">
                 <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
@@ -93,13 +89,13 @@
 
             <label style="font-size:12px; font-weight:bold;">QUANTIDADE FÍSICA:</label>
             <div style="display:flex; align-items:center; margin-bottom:15px;">
-                <input type="number" id="m-qtd" inputmode="decimal" style="flex:1; padding:15px; font-size:22px; font-weight:bold; border:2px solid var(--blue);">
+                <input type="number" id="m-qtd" inputmode="decimal" style="flex:1; padding:15px; font-size:22px; font-weight:bold; border:2px solid var(--blue); border-radius:8px;">
                 <span id="m-un-display" class="unidade-badge">UN</span>
             </div>
 
             <div style="display:flex; gap:8px;">
-                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input"></div>
-                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA"></div>
+                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd;"></div>
+                <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd;"></div>
             </div>
             
             <button class="btn-green" onclick="salvar()" style="margin-top:20px; font-size:16px;">✅ SALVAR AGORA</button>
@@ -109,7 +105,7 @@
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v21_9';
+        const STORAGE_KEY = 'auditoria_omie_v22_0';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
@@ -191,9 +187,8 @@
             res.innerHTML = ''; if (t.length < 1) return;
             const filtered = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
             filtered.slice(0, 15).forEach(i => {
-                const ja = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
                 const d = document.createElement('div'); d.className = 'item-res';
-                d.innerHTML = `<strong>${i.descricao}</strong> ${ja ? '<span class="badge-alerta">JÁ CONTADO</span>' : ''}<div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
+                d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
                 d.onclick = () => abrirModal(i, false); res.appendChild(d);
             });
             if (filtered.length === 0) {
@@ -205,17 +200,18 @@
         };
 
         function abrirModal(item, isNovo) {
-            const ja = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
-            if (ja && !confirm("Item já contado. Continuar?")) return;
             itemAtual = item;
+            const ja = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
             document.getElementById('m-status-dup').style.display = ja ? 'block' : 'none';
             document.getElementById('m-gtin').innerText = "GTIN: " + item.gtin;
-            document.getElementById('m-un-display').innerText = item.unidade;
+            document.getElementById('m-un-display').innerText = item.unidade || 'UN';
             document.getElementById('m-nome-edit').value = item.descricao;
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
-            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
+            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade || 'UN'}`;
             document.getElementById('m-cmc-val').innerText = `CMC: R$ ${item.cmc.toFixed(2)}`;
+            document.getElementById('m-lote').value = "";
+            document.getElementById('m-validade').value = "";
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
@@ -224,12 +220,31 @@
         function fecharModal() { document.getElementById('modal').style.display = "none"; }
 
         function salvar() {
-            const q = parseFloat(document.getElementById('m-qtd').value);
-            if (isNaN(q)) return alert("Informe a quantidade!");
-            contagens.unshift({...itemAtual, fisico: q, dif: q - itemAtual.sistema, v_dif: (q - itemAtual.sistema) * itemAtual.cmc, lote: document.getElementById('m-lote').value.toUpperCase(), validade: document.getElementById('m-validade').value, data: new Date().toLocaleString()});
+            const qStr = document.getElementById('m-qtd').value;
+            if (!qStr) return alert("Informe a quantidade!");
+            const q = parseFloat(qStr);
+            
+            contagens.unshift({
+                codigo: itemAtual.codigo,
+                descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
+                gtin: itemAtual.gtin,
+                unidade: itemAtual.unidade || 'UN',
+                local: itemAtual.local,
+                sistema: itemAtual.sistema,
+                fisico: q,
+                dif: q - itemAtual.sistema,
+                cmc_unitario: itemAtual.cmc,
+                v_dif: (q - itemAtual.sistema) * itemAtual.cmc,
+                lote: document.getElementById('m-lote').value.toUpperCase(),
+                validade: document.getElementById('m-validade').value,
+                data: new Date().toLocaleString()
+            });
+            
             localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens));
-            render(); fecharModal();
-            document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
+            render(); 
+            fecharModal();
+            document.getElementById('busca-input').value = ''; 
+            document.getElementById('resultados').innerHTML = '';
         }
 
         function render() {
