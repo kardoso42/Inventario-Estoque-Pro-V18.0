@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-21.4 - CORREÇÃO DE IMPORTAÇÃO</title>
+    <title>Auditor Omie V-21.3 - BUSCA INTELIGENTE</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -27,11 +27,12 @@
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 6px 4px; text-align: center; }
         .diff-neg { color: var(--red); font-weight: bold; }
+        .diff-zero { color: var(--green); font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.4 - Mapeamento de Colunas Reforçado</div>
+    <div id="status-backup" style="font-size:9px; text-align:center; color:var(--gray);">☁️ V-21.3 - Busca e Filtros Restaurados</div>
 
     <div class="dash-container">
         <div class="dash-card"><h4>Itens Lidos</h4><p id="dash-skus">0</p></div>
@@ -45,19 +46,24 @@
             <select id="filtro-local"><option value="">📍 LOCAL (TODOS)</option></select>
             <select id="filtro-familia"><option value="">📂 FAMÍLIA (TODOS)</option></select>
         </div>
-        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">⚠️ Aguardando carregamento...</div>
+        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">⚠️ Carregue a planilha para ativar a busca.</div>
     </div>
 
     <div class="card">
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
         <div id="reader" style="display:none; width:100%; margin-bottom:10px;"></div>
-        <input type="text" id="busca-input" class="uppercase-input" placeholder="DIGITE NOME OU CÓDIGO DO PRODUTO...">
+        <input type="text" id="busca-input" class="uppercase-input" placeholder="DIGITE NOME OU CÓDIGO...">
         <div id="resultados"></div>
     </div>
 
     <div class="card">
+        <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 13px; margin-bottom: 10px;">
+            <span id="stats-contagem">ITENS: 0</span>
+            <span id="stats-valor" style="color: var(--red);">R$ 0,00</span>
+        </div>
         <button class="btn-green" onclick="baixarExcel()">📥 EXPORTAR EXCEL</button>
         <button class="btn-orange" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
+        
         <div style="overflow-x: auto;">
             <table id="tabela">
                 <thead>
@@ -66,12 +72,12 @@
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
-        <button class="btn-red" onclick="limparTudo()" style="font-size: 10px; opacity: 0.5; margin-top: 20px;">Limpar Auditoria</button>
+        <button class="btn-red" onclick="limparTudo()" style="font-size: 10px; opacity: 0.5; margin-top: 20px;">Limpar Tudo</button>
     </div>
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <h4 id="m-status-dup" style="display:none; color:var(--orange);">⚠️ JÁ CONTADO!</h4>
+            <h4 id="m-status-dup" style="display:none; color:var(--orange); font-size:12px;">⚠️ JÁ CONTADO!</h4>
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
             <input type="text" id="m-nome-edit" class="uppercase-input">
             <div id="m-info-box" style="background:#f1f4f8; padding:10px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue);">
@@ -79,36 +85,35 @@
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
                 <p id="m-cmc-val" style="font-size:11px; margin:2px 0; color:#666;"></p>
             </div>
-            <label style="font-size:12px; font-weight:bold;">Quantidade Física:</label>
+            <label style="font-size:12px; font-weight:bold;">Quantidade Física (<span id="m-un-label">UN</span>):</label>
             <input type="number" id="m-qtd" inputmode="decimal" style="width:100%; padding:15px; font-size:20px; font-weight:bold;">
             <div style="display:flex; gap:8px; margin-top:10px;">
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" class="uppercase-input"></div>
                 <div style="flex:1;"><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10"></div>
             </div>
-            <button class="btn-green" onclick="salvar()" style="margin-top:15px;">✅ SALVAR</button>
+            <button class="btn-green" onclick="salvar()" style="margin-top:15px; font-size:16px;">✅ SALVAR</button>
             <button onclick="fecharModal()" style="background:#eee; margin-top:5px;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v21_4';
+        const STORAGE_KEY = 'auditoria_omie_v21_3';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        // Máscara Data e Maiúsculas
         document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
             else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
             e.target.value = v;
         };
+
         document.querySelectorAll('.uppercase-input').forEach(el => {
             el.addEventListener('input', e => e.target.value = e.target.value.toUpperCase());
         });
 
-        // IMPORTAÇÃO COM BUSCA DE COLUNAS REAL
         document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
             reader.onload = function(evt) {
@@ -117,32 +122,20 @@
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(sheet, {header: 1});
                 
-                let idxCod = -1, idxDesc = -1, idxFam = -1, idxUnid = -1, idxSist = -1, idxCmc = -1, idxLoc = -1;
-
-                // Varre as primeiras 20 linhas para achar os cabeçalhos
-                for(let r=0; r<Math.min(rows.length, 20); r++){
-                    let row = rows[r];
-                    row.forEach((cell, c) => {
-                        let txt = String(cell).toUpperCase();
-                        if(txt.includes("CÓDIGO")) idxCod = c;
-                        if(txt.includes("DESCRIÇÃO")) idxDesc = c;
-                        if(txt.includes("FAMÍLIA")) idxFam = c;
-                        if(txt.includes("UNIDADE")) idxUnid = c;
-                        if(txt.includes("SALDO ATUAL")) idxSist = c;
-                        if(txt.includes("PREÇO UNITÁRIO") || txt.includes("CMC")) idxCmc = c;
-                        if(txt.includes("LOCAL")) idxLoc = c;
-                    });
-                    if(idxCod !== -1 && idxDesc !== -1) break;
-                }
-
-                if(idxCod === -1 || idxDesc === -1) {
-                    alert("ERRO: Não encontrei as colunas 'Código' ou 'Descrição' na planilha!");
-                    return;
-                }
+                // CABEÇALHO INTELIGENTE (Procura as colunas pelo nome)
+                const headers = rows[2] || rows[0]; // Tenta a linha 3 ou 1
+                const idxCod = headers.findIndex(h => String(h).includes("Código"));
+                const idxDesc = headers.findIndex(h => String(h).includes("Descrição"));
+                const idxFam = headers.findIndex(h => String(h).includes("Família"));
+                const idxUnid = headers.findIndex(h => String(h).includes("Unidade"));
+                const idxSist = headers.findIndex(h => String(h).includes("Saldo Atual"));
+                const idxCmc = headers.findIndex(h => String(h).includes("Preço Unitário"));
+                const idxLoc = headers.findIndex(h => String(h).includes("Local"));
 
                 baseDados = []; let locais = new Set(); let familias = new Set();
+                
                 rows.forEach((row, index) => {
-                    if (row[idxDesc] && row[idxCod] && String(row[idxCod]).toUpperCase() !== "CÓDIGO") {
+                    if (index > 2 && row[idxDesc]) {
                         const loc = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
                         const fam = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
                         locais.add(loc); familias.add(fam);
@@ -150,13 +143,15 @@
                             codigo: String(row[idxCod] || '').trim().toUpperCase(),
                             descricao: String(row[idxDesc] || '').trim().toUpperCase(),
                             familia: fam, local: loc, unidade: String(row[idxUnid] || 'UN').toUpperCase(),
+                            loteOriginal: String(row[4] || '').trim(), 
+                            validadeOriginal: String(row[5] || '').trim(),
                             sistema: parseFloat(row[idxSist] || 0), cmc: parseFloat(row[idxCmc] || 0)
                         });
                     }
                 });
                 
                 popularFiltros(locais, familias);
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS CARREGADOS!`;
+                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS PRONTOS PARA BUSCA.`;
                 document.getElementById('info-carga').style.color = "var(--green)";
             };
             reader.readAsArrayBuffer(e.target.files[0]);
@@ -174,15 +169,23 @@
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
+            const fS = document.getElementById('filtro-familia').value;
             const res = document.getElementById('resultados');
             res.innerHTML = ''; if (t.length < 1) return;
 
-            const filtered = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
+            const filtered = baseDados.filter(i => {
+                const matchTexto = i.descricao.includes(t) || i.codigo.includes(t);
+                const matchLocal = lS === "" || i.local === lS;
+                const matchFam = fS === "" || i.familia === fS;
+                return matchTexto && matchLocal && matchFam;
+            });
 
             if (filtered.length > 0) {
                 filtered.slice(0, 15).forEach(i => {
+                    const jaContado = contagens.some(c => c.codigo === i.codigo && c.local === i.local);
                     const d = document.createElement('div'); d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | Cód: ${i.codigo} | SISTEMA: ${i.sistema}</div>`;
+                    d.innerHTML = `<strong>${i.descricao}</strong> ${jaContado ? '<span class="badge-alerta">JÁ CONTADO</span>' : ''}
+                                   <div class="item-detail">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
                     d.onclick = () => abrirModal(i, false); res.appendChild(d);
                 });
             } else {
@@ -194,13 +197,16 @@
         };
 
         function abrirModal(item, isNovo) {
+            const jaContado = contagens.some(c => c.codigo === item.codigo && c.local === item.local);
+            if (jaContado && !confirm("ITEM JÁ CONTADO. CONTINUAR?")) return;
             itemAtual = item;
-            document.getElementById('m-un-label').innerText = item.unidade || 'UN';
+            document.getElementById('m-status-dup').style.display = jaContado ? 'block' : 'none';
+            document.getElementById('m-un-label').innerText = item.unidade;
             const inputNome = document.getElementById('m-nome-edit');
             inputNome.value = item.descricao;
             inputNome.readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
-            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema}`;
+            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
             document.getElementById('m-cmc-val').innerText = `CMC: R$ ${item.cmc.toFixed(2)}`;
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
@@ -211,7 +217,7 @@
 
         function salvar() {
             const q = parseFloat(document.getElementById('m-qtd').value);
-            if (isNaN(q)) return alert("Informe a quantidade!");
+            if (isNaN(q)) return alert("INFORME A QTD");
             contagens.unshift({
                 codigo: itemAtual.codigo, descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
                 unidade: itemAtual.unidade, local: itemAtual.local, sistema: itemAtual.sistema, fisico: q, 
@@ -226,10 +232,11 @@
 
         function render() {
             const body = document.getElementById('tabela-body');
-            let vT = 0, pT = 0; body.innerHTML = '';
+            let vT = 0; let pT = 0; body.innerHTML = '';
             contagens.forEach(i => {
                 vT += i.v_dif; pT += i.fisico;
-                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${i.dif < 0 ? 'diff-neg' : ''}">${i.dif}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
+                let cl = i.dif < 0 ? 'diff-neg' : (i.dif === 0 ? 'diff-zero' : '');
+                body.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${cl}">${i.dif}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
             });
             document.getElementById('dash-skus').innerText = contagens.length;
             document.getElementById('dash-pecas').innerText = pT;
@@ -250,10 +257,15 @@
             } else { desligarCam(); }
         }
 
-        function desligarCam() { if (html5QrCode) html5QrCode.stop(); document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; }
-        function apagarUltimo() { if (contagens.length > 0 && confirm("Apagar último?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
+        function desligarCam() {
+            if (html5QrCode) html5QrCode.stop();
+            document.getElementById('reader').style.display = "none";
+            document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER";
+        }
+
+        function apagarUltimo() { if (contagens.length > 0 && confirm("APAGAR ÚLTIMO?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
         function baixarExcel() { const ws = XLSX.utils.json_to_sheet(contagens); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "AUDITORIA"); XLSX.writeFile(wb, "INVENTARIO.xlsx"); }
-        function limparTudo() { if(confirm("Limpar tudo?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
+        function limparTudo() { if(confirm("LIMPAR TUDO?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
         render();
     </script>
 </body>
