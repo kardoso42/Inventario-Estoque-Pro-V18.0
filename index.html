@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-23.1 - REVISÃO TOTAL</title>
+    <title>Auditor Omie V-23.2 - CHECK DUPLICIDADE</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -13,19 +13,26 @@
         .dash-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
         .dash-card p { margin: 5px 0 0; font-size: 16px; font-weight: bold; color: var(--blue); }
+        
         button { width: 100%; padding: 15px; margin: 8px 0; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green) !important; color: white !important; }
         .btn-orange { background: var(--orange); color: white; }
         .btn-red { background: var(--red); color: white; margin-top: 20px; }
+        
         .diff-neg { color: var(--red) !important; font-weight: bold; }
         .diff-pos { color: var(--blue) !important; font-weight: bold; }
         .diff-zero { color: var(--green) !important; font-weight: bold; }
+        
+        .badge-ja-contado { background: var(--orange); color: white; font-size: 9px; padding: 2px 5px; border-radius: 4px; margin-left: 5px; }
+        
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 95vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
+        
         .grid-inputs { display: grid; grid-template-columns: 3fr 1fr; gap: 10px; margin-bottom: 15px; }
         .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
@@ -72,14 +79,20 @@
 
     <div id="modal" class="modal">
         <div class="modal-content">
+            <div id="m-aviso-dup" style="display:none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; text-align: center; border: 1px solid #ffeeba;">
+                ⚠️ ITEM JÁ CONTADO NESTE LOCAL!
+            </div>
+
             <label style="font-size: 11px; font-weight: bold;">NOME DO PRODUTO:</label>
             <input type="text" id="m-nome-edit" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            
             <div class="m-info-box">
                 <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
                 <p id="m-loc-cod" style="font-size:11px; margin:2px 0; color:#555;"></p>
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
                 <p id="m-cmc-val" style="font-size:11px; margin:0; color:var(--red); font-weight:bold;"></p>
             </div>
+
             <div class="grid-inputs">
                 <div>
                     <label style="font-size:12px; font-weight:bold;">QTD FÍSICA:</label>
@@ -90,30 +103,33 @@
                     <input type="text" id="m-un-edit" style="width:100%; padding:12px; font-size:16px; border-radius:8px; border:1px solid #ddd; text-align:center;">
                 </div>
             </div>
+
             <div class="grid-2col">
-                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
-                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
+                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;"></div>
+                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;"></div>
             </div>
-            <button class="btn-green" id="btn-save-final">✅ SALVAR CONTAGEM</button>
+            
+            <button class="btn-green" onclick="salvarFinal()">✅ SALVAR CONTAGEM</button>
             <button onclick="fecharModal()" style="background:#eee; margin-top:5px; color:#666;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v23_1';
+        const STORAGE_KEY = 'auditoria_omie_v23_2';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        // Máscara de data /
-        document.getElementById('m-validade').addEventListener('input', function(e) {
+        // Máscara de Data
+        document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
             else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
             e.target.value = v;
-        });
+        };
 
+        // Carregar Planilha
         document.getElementById('file-input').onchange = function(e) {
             const reader = new FileReader();
             reader.onload = function(evt) {
@@ -155,8 +171,12 @@
                         });
                     }
                 }
-                document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL (TODOS)</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                document.getElementById('filtro-familia').innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>' + Array.from(fams).sort().map(i => `<option value="${i}">${i}</option>`).join('');
+                const sL = document.getElementById('filtro-local');
+                const sF = document.getElementById('filtro-familia');
+                sL.innerHTML = '<option value="">📍 LOCAL (TODOS)</option>';
+                sF.innerHTML = '<option value="">📂 FAMÍLIA (TODOS)</option>';
+                Array.from(locs).sort().forEach(i => sL.innerHTML += `<option value="${i}">${i}</option>`);
+                Array.from(fams).sort().forEach(i => sF.innerHTML += `<option value="${i}">${i}</option>`);
                 document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS OK!`;
             };
             reader.readAsArrayBuffer(e.target.files[0]);
@@ -174,24 +194,39 @@
             document.getElementById('dash-pecas').innerText = pT;
         }
 
+        // Lógica de Duplicidade
+        function verificarDuplicado(codigo, local) {
+            return contagens.some(c => c.codigo === codigo && c.local === local);
+        }
+
         function abrirModal(item, isNovo) {
             itemAtual = item;
-            document.getElementById('m-un-edit').value = item.unidade || 'UN';
-            document.getElementById('m-un-edit').readOnly = !isNovo;
+            
+            // Verifica duplicidade para mostrar aviso
+            const duplicado = verificarDuplicado(item.codigo, item.local);
+            document.getElementById('m-aviso-dup').style.display = duplicado ? 'block' : 'none';
+
+            const unInput = document.getElementById('m-un-edit');
+            unInput.value = item.unidade || 'UN';
+            unInput.readOnly = !isNovo;
+            unInput.style.background = isNovo ? "#fffbea" : "#eee";
+
             document.getElementById('m-gtin').innerText = "GTIN: " + (item.gtin || "N/A");
             document.getElementById('m-nome-edit').value = item.descricao;
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
             document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade || 'UN'}`;
             document.getElementById('m-cmc-val').innerText = `CMC UNITÁRIO: R$ ${item.cmc.toFixed(2)}`;
+            
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
         }
 
-        document.getElementById('btn-save-final').addEventListener('click', function() {
+        function salvarFinal() {
             const qVal = document.getElementById('m-qtd').value;
             if (!qVal) return alert("Quantidade!");
+            
             contagens.unshift({
                 ...itemAtual,
                 descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
@@ -207,23 +242,26 @@
             localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens));
             render(); fecharModal();
             document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
-        });
+        }
 
         document.getElementById('busca-input').oninput = function() {
             const t = this.value.toUpperCase().trim();
             const lS = document.getElementById('filtro-local').value;
-            const fS = document.getElementById('filtro-familia').value;
             const res = document.getElementById('resultados');
             res.innerHTML = ''; if (t.length < 1) return;
-            const fil = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS) && (fS === "" || i.familia === fS));
+            const fil = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t)) && (lS === "" || i.local === lS));
+            
             if(fil.length > 0) {
                 fil.slice(0, 15).forEach(i => {
+                    // Badge de duplicado na lista de busca
+                    const duplicado = verificarDuplicado(i.codigo, i.local);
                     const d = document.createElement('div'); d.className = 'item-res';
-                    d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local} | FAM: ${i.familia}</div>`;
+                    d.innerHTML = `<strong>${i.descricao}</strong> ${duplicado ? '<span class="badge-ja-contado">JÁ CONTADO</span>' : ''}
+                                   <div style="font-size:10px; color:#666;">${i.local} | SISTEMA: ${i.sistema} ${i.unidade}</div>`;
                     d.onclick = () => abrirModal(i, false); res.appendChild(d);
                 });
             } else {
-                res.innerHTML = `<button class="btn-blue" onclick="abrirModal({codigo:'NOVO', gtin:'N/A', descricao:'${t}', local:'${lS||'MANUAL'}', sistema:0, cmc:0, unidade:'UN'}, true)">➕ NOVO: "${t}"</button>`;
+                res.innerHTML = `<button class="btn-blue" onclick="abrirModal({codigo:'NOVO', gtin:'N/A', descricao:'${t}', local:'${lS||'MANUAL'}', sistema:0, cmc:0, unidade:'UN'}, true)">➕ CADASTRAR NOVO: "${t}"</button>`;
             }
         };
 
@@ -243,9 +281,9 @@
 
         function desligarCam() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue"; }); } }
         function fecharModal() { document.getElementById('modal').style.display = "none"; }
-        function apagarUltimo() { if(contagens.length > 0 && confirm("Apagar último?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
+        function apagarUltimo() { if(contagens.length > 0 && confirm("Apagar?")) { contagens.shift(); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); } }
         function baixarExcel() { const ws = XLSX.utils.json_to_sheet(contagens); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "AUDITORIA"); XLSX.writeFile(wb, "INVENTARIO.xlsx"); }
-        function limparTudo() { if(confirm("CUIDADO: Limpar tudo?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
+        function limparTudo() { if(confirm("Limpar?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
         render();
     </script>
 </body>
