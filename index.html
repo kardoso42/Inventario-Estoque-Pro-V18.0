@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-24.0 - FINAL CHECK</title>
+    <title>Auditor Omie V-24.1 - LAYOUT FIX</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -16,23 +16,32 @@
         .dash-card p { margin: 5px 0 0; font-size: 15px; font-weight: bold; }
         .val-neg { color: var(--red) !important; }
         .val-pos { color: var(--green) !important; }
+        
         button { width: 100%; padding: 14px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 14px; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-orange { background: var(--orange); color: white; }
         .btn-red { background: var(--red); color: white; }
+
+        /* MODAL E LAYOUT DE INPUTS */
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
-        .grid-80-20 { display: grid; grid-template-columns: 4fr 1fr; gap: 8px; margin-bottom: 15px; align-items: flex-end; }
+        
+        /* FIX DO ATROPELAMENTO: FLEXBOX */
+        .row-qtd-un { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px; width: 100%; }
+        .col-qtd { flex: 1; } /* Ocupa todo o espaço restante */
+        .col-un { width: 70px; } /* Tamanho fixo para a unidade */
+
         .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
+        input { text-transform: uppercase; width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
         .diff-neg { color: var(--red) !important; font-weight: bold; }
         .diff-pos { color: var(--blue) !important; font-weight: bold; }
         .diff-zero { color: var(--green) !important; font-weight: bold; }
-        input { text-transform: uppercase; }
     </style>
 </head>
 <body>
@@ -47,18 +56,19 @@
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold;">1. PLANILHA VIE HOTEL:</label>
+        <label style="font-size: 11px; font-weight: bold;">1. CARREGAR PLANILHA:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local" style="flex:1; padding:10px;"><option value="">📍 LOCAL</option></select>
             <select id="filtro-familia" style="flex:1; padding:10px;"><option value="">📂 FAMÍLIA</option></select>
         </div>
+        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">Aguardando arquivo...</div>
     </div>
 
     <div class="card">
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
         <div id="reader" style="display:none; width:100%; border-radius: 8px; overflow: hidden; margin-top:10px;"></div>
-        <input type="text" id="busca-input" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-top:10px;" placeholder="BUSCAR NOME OU GTIN...">
+        <input type="text" id="busca-input" placeholder="PESQUISAR NOME OU GTIN...">
         <div id="resultados" style="max-height: 200px; overflow-y: auto; margin-top:10px;"></div>
     </div>
 
@@ -82,28 +92,33 @@
             <div id="m-aviso-dup" style="display:none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; text-align: center;">
                 ⚠️ JÁ CONTADO: <span id="m-qtd-anterior">0</span> <span id="m-un-anterior"></span>
             </div>
+            
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
-            <input type="text" id="m-nome-edit" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
+            <input type="text" id="m-nome-edit">
+            
             <div class="m-info-box">
                 <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
                 <p id="m-loc-cod" style="font-size:11px; margin:2px 0; color:#555;"></p>
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
                 <p id="m-cmc-val" style="font-size:11px; margin:0; color:var(--red); font-weight:bold;"></p>
             </div>
-            <div class="grid-80-20">
-                <div>
+
+            <div class="row-qtd-un">
+                <div class="col-qtd">
                     <label style="font-size:12px; font-weight:bold;">QTD FÍSICA:</label>
-                    <input type="number" id="m-qtd" inputmode="decimal" style="width:100%; padding:12px; font-size:20px; font-weight:bold; border:2px solid var(--blue); border-radius:8px;">
+                    <input type="number" id="m-qtd" inputmode="decimal" style="font-size:22px; font-weight:bold; border:2px solid var(--blue);">
                 </div>
-                <div>
-                    <label style="font-size:10px; font-weight:bold;">UN:</label>
-                    <input type="text" id="m-un-edit" style="width:100%; padding:12px; font-size:14px; border-radius:8px; border:1px solid #ddd; text-align:center;">
+                <div class="col-un">
+                    <label style="font-size:12px; font-weight:bold;">UN:</label>
+                    <input type="text" id="m-un-edit" style="text-align:center;">
                 </div>
             </div>
+
             <div class="grid-2col">
-                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
-                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
+                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote"></div>
+                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA"></div>
             </div>
+            
             <div id="botoes-salvar" style="margin-top:20px;">
                 <button id="btn-salvar-normal" class="btn-green" onclick="salvarFinal('substituir')">✅ SALVAR CONTAGEM</button>
                 <div id="botoes-duplicado" style="display:none; gap:10px;">
@@ -117,11 +132,12 @@
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v24_0';
+        const STORAGE_KEY = 'auditoria_omie_v24_1';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
+        // Máscara de Data
         document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
@@ -170,7 +186,7 @@
                 }
                 document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
                 document.getElementById('filtro-familia').innerHTML = '<option value="">📂 FAMÍLIA</option>' + Array.from(fams).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS OK!`;
+                document.getElementById('info-carga').innerText = `✅ ITENS OK!`;
             };
             reader.readAsArrayBuffer(e.target.files[0]);
         };
@@ -210,7 +226,7 @@
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
             document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
-            document.getElementById('m-cmc-val').innerText = `CMC UNITÁRIO: R$ ${(item.cmc || 0).toFixed(2)}`;
+            document.getElementById('m-cmc-val').innerText = `CMC: R$ ${(item.cmc || 0).toFixed(2)}`;
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
