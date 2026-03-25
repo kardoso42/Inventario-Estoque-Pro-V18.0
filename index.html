@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-23.7 - ENGINE FIX</title>
+    <title>Auditor Omie V-24.0 - FINAL CHECK</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         :root { --blue: #004a8d; --green: #2ecc71; --red: #e74c3c; --gray: #7f8c8d; --orange: #f39c12; --bg: #f4f7f9; }
-        body { font-family: sans-serif; margin: 0; padding: 10px; background: var(--bg); color: #333; overflow-x: hidden; }
+        body { font-family: sans-serif; margin: 0; padding: 10px; background: var(--bg); color: #333; }
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         .dash-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
@@ -21,51 +21,51 @@
         .btn-green { background: var(--green); color: white; }
         .btn-orange { background: var(--orange); color: white; }
         .btn-red { background: var(--red); color: white; }
-        .diff-neg { color: var(--red) !important; font-weight: bold; }
-        .diff-pos { color: var(--blue) !important; font-weight: bold; }
-        .diff-zero { color: var(--green) !important; font-weight: bold; }
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
-        .grid-inputs { display: grid; grid-template-columns: 3fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .grid-80-20 { display: grid; grid-template-columns: 4fr 1fr; gap: 8px; margin-bottom: 15px; align-items: flex-end; }
         .grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .item-res { padding: 12px; border-bottom: 1px solid #eee; background: #fff; cursor: pointer; border-radius: 5px; margin-bottom: 5px; }
-        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; background: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
+        .diff-neg { color: var(--red) !important; font-weight: bold; }
+        .diff-pos { color: var(--blue) !important; font-weight: bold; }
+        .diff-zero { color: var(--green) !important; font-weight: bold; }
+        input { text-transform: uppercase; }
     </style>
 </head>
 <body>
 
     <div class="dash-container">
         <div class="dash-card"><h4>Itens</h4><p id="dash-skus">0</p></div>
-        <div class="dash-card"><h4>Físico Total</h4><p id="dash-pecas">0</p></div>
+        <div class="dash-card"><h4>Peças</h4><p id="dash-pecas">0</p></div>
         <div class="dash-card" style="grid-column: span 2; border-top-color: var(--orange);">
-            <h4>Diferença Financeira (R$)</h4>
+            <h4>Divergência Financeira (R$)</h4>
             <p id="dash-financeiro">R$ 0,00</p>
         </div>
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold;">1. CARREGAR PLANILHA:</label>
+        <label style="font-size: 11px; font-weight: bold;">1. PLANILHA VIE HOTEL:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
         <div style="display: flex; gap: 5px; margin-top: 10px;">
             <select id="filtro-local" style="flex:1; padding:10px;"><option value="">📍 LOCAL</option></select>
             <select id="filtro-familia" style="flex:1; padding:10px;"><option value="">📂 FAMÍLIA</option></select>
         </div>
-        <div id="info-carga" style="font-size: 11px; color: var(--orange); font-weight: bold; margin-top: 5px;">Aguardando arquivo...</div>
     </div>
 
     <div class="card">
-        <button id="btn-cam" class="btn-blue">📷 LIGAR SCANNER</button>
-        <div id="reader" style="display:none; width:100%; border-radius: 8px; overflow: hidden; margin-top: 10px;"></div>
-        <input type="text" id="busca-input" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-top:10px;" placeholder="PESQUISAR PRODUTO...">
+        <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
+        <div id="reader" style="display:none; width:100%; border-radius: 8px; overflow: hidden; margin-top:10px;"></div>
+        <input type="text" id="busca-input" style="width:100%; padding:12px; border-radius:8px; border:1px solid #ddd; margin-top:10px;" placeholder="BUSCAR NOME OU GTIN...">
         <div id="resultados" style="max-height: 200px; overflow-y: auto; margin-top:10px;"></div>
     </div>
 
     <div class="card">
-        <button id="btn-exp-tudo" class="btn-green">📥 EXPORTAR TUDO</button>
-        <button id="btn-exp-erros" class="btn-blue" style="background: #2980b9;">🚫 SÓ DIVERGÊNCIAS</button>
-        <button id="btn-apagar-u" class="btn-orange">↩️ APAGAR ÚLTIMO</button>
+        <button class="btn-green" onclick="baixarExcel('tudo')">📥 EXPORTAR TUDO</button>
+        <button class="btn-blue" onclick="baixarExcel('erros')" style="background: #2980b9;">🚫 SÓ DIVERGÊNCIAS</button>
+        <button class="btn-orange" onclick="apagarUltimo()">↩️ APAGAR ÚLTIMO</button>
         <div style="overflow-x: auto;">
             <table id="tabela">
                 <thead>
@@ -74,70 +74,59 @@
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
-        <button id="btn-limpar-geral" class="btn-red" style="margin-top:20px; font-size:10px; opacity: 0.7;">🗑️ LIMPAR AUDITORIA</button>
+        <button class="btn-red" onclick="limparTudo()" style="margin-top:20px; font-size:10px;">🗑️ LIMPAR AUDITORIA</button>
     </div>
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <div id="m-aviso-dup" style="display:none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; text-align: center; border: 1px solid #ffeeba;">
+            <div id="m-aviso-dup" style="display:none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; text-align: center;">
                 ⚠️ JÁ CONTADO: <span id="m-qtd-anterior">0</span> <span id="m-un-anterior"></span>
             </div>
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
-            <input type="text" id="m-nome-edit" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px; text-transform: uppercase;">
+            <input type="text" id="m-nome-edit" style="width:100%; padding:10px; border:1px solid #ddd; border-radius:5px;">
             <div class="m-info-box">
                 <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
                 <p id="m-loc-cod" style="font-size:11px; margin:2px 0; color:#555;"></p>
                 <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
                 <p id="m-cmc-val" style="font-size:11px; margin:0; color:var(--red); font-weight:bold;"></p>
             </div>
-            <div class="grid-inputs">
+            <div class="grid-80-20">
                 <div>
                     <label style="font-size:12px; font-weight:bold;">QTD FÍSICA:</label>
                     <input type="number" id="m-qtd" inputmode="decimal" style="width:100%; padding:12px; font-size:20px; font-weight:bold; border:2px solid var(--blue); border-radius:8px;">
                 </div>
-                <div><label style="font-size:12px; font-weight:bold;">UN:</label><input type="text" id="m-un-edit" style="width:100%; padding:12px; font-size:16px; border-radius:8px; border:1px solid #ddd; text-align:center; text-transform: uppercase;"></div>
-            </div>
-            <div class="grid-2col">
-                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" style="width:100%; padding:10px; border:1px solid #ddd; text-transform: uppercase;"></div>
-                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
-            </div>
-            <div id="area-botoes-modal" style="margin-top:20px;">
-                <button id="btn-salvar-sub" class="btn-green">✅ SALVAR CONTAGEM</button>
-                <div id="box-duplicado" style="display:none; gap:10px;">
-                    <button id="btn-salvar-soma" class="btn-blue" style="flex:1;">➕ SOMAR</button>
-                    <button id="btn-salvar-rep" class="btn-orange" style="flex:1;">🔄 SUBSTITUIR</button>
+                <div>
+                    <label style="font-size:10px; font-weight:bold;">UN:</label>
+                    <input type="text" id="m-un-edit" style="width:100%; padding:12px; font-size:14px; border-radius:8px; border:1px solid #ddd; text-align:center;">
                 </div>
             </div>
-            <button id="btn-fechar-modal" style="background:#eee; margin-top:5px; color:#666;">CANCELAR</button>
+            <div class="grid-2col">
+                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
+                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA" style="width:100%; padding:10px; border:1px solid #ddd;"></div>
+            </div>
+            <div id="botoes-salvar" style="margin-top:20px;">
+                <button id="btn-salvar-normal" class="btn-green" onclick="salvarFinal('substituir')">✅ SALVAR CONTAGEM</button>
+                <div id="botoes-duplicado" style="display:none; gap:10px;">
+                    <button class="btn-blue" onclick="salvarFinal('somar')" style="flex:1;">➕ SOMAR</button>
+                    <button class="btn-orange" onclick="salvarFinal('substituir')" style="flex:1;">🔄 SUBSTITUIR</button>
+                </div>
+            </div>
+            <button onclick="fecharModal()" style="background:#eee; margin-top:5px; color:#666;">CANCELAR</button>
         </div>
     </div>
 
     <script>
         let baseDados = [];
-        const STORAGE_KEY = 'auditoria_omie_v23_7';
+        const STORAGE_KEY = 'auditoria_omie_v24_0';
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null;
         let html5QrCode = null;
 
-        // Inicialização de Eventos Blindada
-        window.onload = () => {
-            document.getElementById('btn-exp-tudo').onclick = () => baixarExcel('tudo');
-            document.getElementById('btn-exp-erros').onclick = () => baixarExcel('erros');
-            document.getElementById('btn-apagar-u').onclick = () => apagarUltimo();
-            document.getElementById('btn-limpar-geral').onclick = () => limparTudo();
-            document.getElementById('btn-cam').onclick = () => controlarCamera();
-            document.getElementById('btn-fechar-modal').onclick = () => fecharModal();
-            document.getElementById('btn-salvar-sub').onclick = () => salvarFinal('substituir');
-            document.getElementById('btn-salvar-soma').onclick = () => salvarFinal('somar');
-            document.getElementById('btn-salvar-rep').onclick = () => salvarFinal('substituir');
-            
-            document.getElementById('m-validade').oninput = (e) => {
-                let v = e.target.value.replace(/\D/g, '');
-                if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
-                else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
-                e.target.value = v;
-            };
-            render();
+        document.getElementById('m-validade').oninput = function(e) {
+            let v = e.target.value.replace(/\D/g, '');
+            if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
+            else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
+            e.target.value = v;
         };
 
         document.getElementById('file-input').onchange = function(e) {
@@ -181,7 +170,7 @@
                 }
                 document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
                 document.getElementById('filtro-familia').innerHTML = '<option value="">📂 FAMÍLIA</option>' + Array.from(fams).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS LIDOS`;
+                document.getElementById('info-carga').innerText = `✅ ${baseDados.length} ITENS OK!`;
             };
             reader.readAsArrayBuffer(e.target.files[0]);
         };
@@ -190,8 +179,7 @@
             const b = document.getElementById('tabela-body');
             let pT = 0; let financeiro = 0; b.innerHTML = '';
             contagens.forEach(i => {
-                pT += i.fisico; 
-                financeiro += (i.dif * i.cmc_unitario);
+                pT += i.fisico; financeiro += (i.dif * i.cmc_unitario);
                 let cl = i.dif < 0 ? 'diff-neg' : (i.dif === 0 ? 'diff-zero' : 'diff-pos');
                 b.innerHTML += `<tr><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${cl}">${i.dif.toFixed(2)}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
             });
@@ -199,7 +187,7 @@
             document.getElementById('dash-pecas').innerText = pT.toFixed(2);
             const fEl = document.getElementById('dash-financeiro');
             fEl.innerText = "R$ " + financeiro.toLocaleString('pt-BR', {minimumFractionDigits: 2});
-            fEl.className = financeiro < 0 ? "val-neg" : (financeiro > 0 ? "val-pos" : "");
+            fEl.className = financeiro < 0 ? "val-neg" : "val-pos";
         }
 
         function abrirModal(item, isNovo) {
@@ -209,11 +197,11 @@
             if(idxAnt !== -1) {
                 document.getElementById('m-qtd-anterior').innerText = contagens[idxAnt].fisico;
                 document.getElementById('m-un-anterior').innerText = contagens[idxAnt].unidade;
-                document.getElementById('btn-salvar-sub').style.display = 'none';
-                document.getElementById('box-duplicado').style.display = 'flex';
+                document.getElementById('btn-salvar-normal').style.display = 'none';
+                document.getElementById('botoes-duplicado').style.display = 'flex';
             } else {
-                document.getElementById('btn-salvar-sub').style.display = 'block';
-                document.getElementById('box-duplicado').style.display = 'none';
+                document.getElementById('btn-salvar-normal').style.display = 'block';
+                document.getElementById('botoes-duplicado').style.display = 'none';
             }
             document.getElementById('m-un-edit').value = item.unidade;
             document.getElementById('m-un-edit').readOnly = !isNovo;
@@ -222,7 +210,7 @@
             document.getElementById('m-nome-edit').readOnly = !isNovo;
             document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
             document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
-            document.getElementById('m-cmc-val').innerText = `CMC UNITÁRIO: R$ ${item.cmc.toFixed(2)}`;
+            document.getElementById('m-cmc-val').innerText = `CMC UNITÁRIO: R$ ${(item.cmc || 0).toFixed(2)}`;
             document.getElementById('modal').style.display = "flex";
             document.getElementById('m-qtd').value = '';
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
@@ -238,7 +226,7 @@
             contagens.unshift({...itemAtual, 
                 descricao: document.getElementById('m-nome-edit').value.toUpperCase(),
                 unidade: document.getElementById('m-un-edit').value.toUpperCase(),
-                fisico: novaQtd, dif: novaQtd - itemAtual.sistema, cmc_unitario: itemAtual.cmc,
+                fisico: novaQtd, dif: novaQtd - itemAtual.sistema, cmc_unitario: itemAtual.cmc || 0,
                 lote: document.getElementById('m-lote').value.toUpperCase(),
                 validade: document.getElementById('m-validade').value
             });
@@ -288,6 +276,7 @@
             XLSX.writeFile(wb, `INVENTARIO_${tipo.toUpperCase()}.xlsx`);
         }
         function limparTudo() { if(confirm("Limpar?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
+        render();
     </script>
 </body>
 </html>
