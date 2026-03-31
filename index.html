@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-27.0 - ESTÁVEL</title>
+    <title>Auditor Omie V-27.3 - UNIQUE MANUAL</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -35,7 +35,6 @@
         .vence-breve { border: 2px solid var(--orange) !important; background: #fff9f0 !important; color: var(--orange) !important; }
         .diff-neg { color: var(--red) !important; font-weight: bold; }
         .diff-pos { color: var(--blue) !important; font-weight: bold; }
-        .diff-zero { color: var(--green) !important; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -258,7 +257,11 @@
             const res = document.getElementById('resultados'); res.innerHTML = ''; if (t.length < 1) return;
             const fil = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t) || i.gtin.includes(t)) && (lS === "" || i.local === lS) && (fS === "" || i.familia === fS));
             if(fil.length > 0) { fil.slice(0, 15).forEach(i => { const d = document.createElement('div'); d.className = 'item-res'; d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local}</div>`; d.onclick = () => { indexEdicao = -1; abrirModal(i, false); }; res.appendChild(d); }); }
-            else { res.innerHTML = `<button class="btn-blue" onclick="indexEdicao = -1; abrirModal({codigo:'NOVO', gtin:'${t}', descricao:'${t}', local:'${lS||'MANUAL'}', sistema:0, cmc:0, unidade:'UN'}, true)">➕ NOVO: "${t}"</button>`; }
+            else { 
+                // CORREÇÃO: GERAR ID ÚNICO PARA PRODUTO NOVO
+                const idUnico = 'MANUAL_' + Date.now();
+                res.innerHTML = `<button class="btn-blue" onclick="indexEdicao = -1; abrirModal({codigo:'${idUnico}', gtin:'${t}', descricao:'${t}', local:'${lS||'MANUAL'}', sistema:0, cmc:0, unidade:'UN'}, true)">➕ NOVO: "${t}"</button>`; 
+            }
         };
 
         async function controlarCamera() {
@@ -274,10 +277,18 @@
         }
 
         function desligarCam() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue"; }); } }
+        
         function baixarExcel(tipo) {
-            let d = tipo === 'erros' ? contagens.filter(i => i.dif !== 0) : contagens;
-            XLSX.writeFile(XLSX.utils.book_new().appendChild(XLSX.utils.json_to_sheet(d), "AUDITORIA"), `INVENTARIO_${tipo.toUpperCase()}.xlsx`);
+            if (contagens.length === 0) return alert("Nada para exportar!");
+            let dadosFiltrados = tipo === 'erros' ? contagens.filter(i => i.dif !== 0) : contagens;
+            if (dadosFiltrados.length === 0) return alert("Não há divergências para exportar!");
+            const worksheet = XLSX.utils.json_to_sheet(dadosFiltrados);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "AUDITORIA");
+            const nomeArquivo = `INVENTARIO_${tipo.toUpperCase()}_${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`;
+            XLSX.writeFile(workbook, nomeArquivo);
         }
+
         function limparTudo() { if(confirm("Limpar?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
         render();
     </script>
