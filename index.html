@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-27.3 - UNIQUE MANUAL</title>
+    <title>Auditor Omie V-29.3 - VISUAL SELEÇÃO CORRIGIDO</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -12,29 +12,33 @@
         .card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 10px; }
         .dash-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
-        .dash-card h4 { margin: 0; font-size: 10px; color: var(--gray); text-transform: uppercase; }
-        .dash-card p { margin: 5px 0 0; font-size: 15px; font-weight: bold; }
-        .recent-box { display: flex; gap: 5px; overflow-x: auto; padding: 5px 0; margin-top: 5px; }
-        .recent-item { background: #eef2f7; padding: 8px; border-radius: 6px; font-size: 10px; min-width: 100px; border-left: 3px solid var(--blue); white-space: nowrap; }
-        button { width: 100%; padding: 14px; margin: 5px 0; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .dash-card p { margin: 5px 0 0; font-size: 16px; font-weight: bold; }
+        
+        /* --- NOVO VISUAL DA CAIXA DE FAMÍLIAS --- */
+        .multi-select-box { border: 1px solid #ddd; border-radius: 8px; padding: 5px; max-height: 140px; overflow-y: auto; background: #fff; margin-top: 5px; }
+        .multi-select-item { display: flex; align-items: center; justify-content: flex-start; gap: 10px; font-size: 11px; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; text-align: left; }
+        .multi-select-item input { margin: 0; width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
+        .multi-select-item label { flex: 1; cursor: pointer; font-weight: bold; color: #444; margin: 0; }
+        
+        .grid-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        button { width: 100%; padding: 14px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 13px; text-transform: uppercase; }
         .btn-blue { background: var(--blue); color: white; }
         .btn-green { background: var(--green); color: white; }
         .btn-orange { background: var(--orange); color: white; }
         .btn-red { background: var(--red); color: white; }
-        .btn-outline { background: none; border: 1px solid var(--blue); color: var(--blue); font-size: 10px; padding: 8px; }
+        .btn-outline { background: white; border: 1px solid var(--blue); color: var(--blue); font-size: 10px; padding: 10px; }
+
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 10000; justify-content: center; align-items: center; }
         .modal-content { background: white; width: 95%; padding: 20px; border-radius: 15px; max-height: 90vh; overflow-y: auto; box-sizing: border-box; }
         .m-info-box { background:#f1f4f8; padding:12px; border-radius:8px; margin:10px 0; border-left:5px solid var(--blue); }
-        .row-qtd-un { display: flex; gap: 10px; align-items: flex-end; margin-bottom: 15px; width: 100%; }
-        .col-qtd { flex: 1; }
-        .col-un { width: 70px; }
+        
+        input { text-transform: uppercase; width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; }
+        .item-res { border-bottom: 1px solid #eee; padding: 15px; cursor: pointer; text-align: left; background: white; font-weight: bold; }
+        
+        .vencido { border: 2px solid var(--red) !important; background: #fff1f0 !important; color: var(--red); }
+        .vence-breve { border: 2px solid var(--orange) !important; background: #fff9f0 !important; color: var(--orange); }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
-        input { text-transform: uppercase; width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
-        .vencido { border: 2px solid var(--red) !important; background: #fff1f0 !important; color: var(--red) !important; }
-        .vence-breve { border: 2px solid var(--orange) !important; background: #fff9f0 !important; color: var(--orange) !important; }
-        .diff-neg { color: var(--red) !important; font-weight: bold; }
-        .diff-pos { color: var(--blue) !important; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -43,79 +47,79 @@
         <div class="dash-card"><h4>Itens</h4><p id="dash-skus">0</p></div>
         <div class="dash-card"><h4>Peças</h4><p id="dash-pecas">0</p></div>
         <div class="dash-card" style="grid-column: span 2; border-top-color: var(--orange);">
-            <h4>Divergência Financeira (R$)</h4>
-            <p id="dash-financeiro">R$ 0,00</p>
+            <h4>Divergência Financeira</h4><p id="dash-financeiro">R$ 0,00</p>
         </div>
     </div>
 
     <div class="card">
-        <label style="font-size: 11px; font-weight: bold;">1. PLANILHA VIE HOTEL:</label>
+        <label style="font-size: 11px; font-weight: bold;">1. PLANILHA OMIE:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
-        <div style="display: flex; gap: 5px; margin-top: 10px;">
-            <select id="filtro-local" style="flex:1; padding:10px;"><option value="">📍 LOCAL</option></select>
-            <select id="filtro-familia" style="flex:1; padding:10px;"><option value="">📂 FAMÍLIA</option></select>
+        <select id="filtro-local" style="margin-top: 10px;"><option value="">📍 LOCAL (TODOS)</option></select>
+        
+        <div style="margin-top: 10px;">
+            <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📂 FAMÍLIAS (TOQUE PARA MARCAR/DESMARCAR):</label>
+            <div id="filtro-familia-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
         </div>
-        <div style="display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap;">
-            <button class="btn-outline" onclick="exportarBackup()" style="flex:1">💾 BACKUP</button>
-            <button class="btn-outline" onclick="document.getElementById('import-backup').click()" style="flex:1">📥 RESTAURAR</button>
+
+        <div class="grid-buttons">
+            <button class="btn-outline" onclick="exportarBackup()">💾 BACKUP</button>
+            <button class="btn-outline" onclick="document.getElementById('import-backup').click()">📥 RESTAURAR</button>
             <input type="file" id="import-backup" style="display:none" onchange="importarBackup(event)">
-            <button class="btn-outline" style="border-color: var(--orange); color: var(--orange); flex:1" onclick="verPendentes()">🔍 PENDENTES</button>
-            <button class="btn-outline" style="border-color: var(--red); color: var(--red); flex:1" onclick="zerarNaoContados()">⚠️ ZERAR RESTO</button>
+            <button class="btn-outline" style="border-color: var(--orange); color: var(--orange);" onclick="verPendentes()">🔍 PENDENTES</button>
+            <button class="btn-outline" style="border-color: var(--red); color: var(--red);" onclick="zerarNaoContados()">⚠️ ZERAR RESTO</button>
         </div>
     </div>
 
     <div class="card">
         <button id="btn-cam" class="btn-blue" onclick="controlarCamera()">📷 LIGAR SCANNER</button>
-        <div id="reader" style="display:none; width:100%; border-radius: 8px; overflow: hidden; margin-top:10px;"></div>
-        <div id="recent-history" class="recent-box"></div>
-        <input type="text" id="busca-input" style="margin-top:10px" placeholder="PESQUISAR NOME OU GTIN...">
-        <div id="resultados" style="max-height: 200px; overflow-y: auto; margin-top:10px;"></div>
+        <div id="reader" style="display:none; width:100%; margin-top:10px;"></div>
+        <input type="text" id="busca-input" style="margin-top:10px; border: 2px solid #333;" placeholder="PESQUISAR NOME OU GTIN...">
+        <div id="resultados" style="max-height: 250px; overflow-y: auto;"></div>
     </div>
 
     <div class="card">
-        <button class="btn-green" onclick="baixarExcel('tudo')">📥 EXPORTAR TUDO (EXCEL)</button>
-        <button class="btn-blue" onclick="baixarExcel('erros')" style="background: #2980b9;">🚫 SÓ ERROS (EXCEL)</button>
+        <div style="display:flex; gap:5px;">
+            <button class="btn-green" onclick="baixarExcel('tudo')">📥 EXPORTAR TUDO</button>
+            <button class="btn-blue" onclick="baixarExcel('erros')" style="background:#2980b9;">🚫 SÓ ERROS</button>
+        </div>
         <div style="overflow-x: auto;">
             <table id="tabela">
-                <thead>
-                    <tr><th style="text-align:left">Produto (Toque p/ Editar)</th><th>Sist</th><th>Fis</th><th>Dif</th><th>CMC</th></tr>
-                </thead>
+                <thead><tr><th>Produto</th><th>Sist</th><th>Fis</th><th>Dif</th><th>CMC</th></tr></thead>
                 <tbody id="tabela-body"></tbody>
             </table>
         </div>
-        <button class="btn-red" onclick="limparTudo()" style="margin-top:20px; font-size:10px; opacity:0.6;">🗑️ LIMPAR AUDITORIA</button>
+        <button onclick="limparTudo()" style="margin-top:20px; color:var(--red); background:none; font-size:10px; border:none; width:100%;">🗑️ LIMPAR AUDITORIA</button>
     </div>
 
     <div id="modal" class="modal">
         <div class="modal-content">
-            <div id="m-aviso-dup" style="display:none; background: #fff3cd; color: #856404; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; text-align: center;">
-                ⚠️ JÁ CONTADO: <span id="m-qtd-anterior">0</span> <span id="m-un-anterior"></span>
-            </div>
+            <div id="m-aviso-dup" style="display:none; background:#fff3cd; color:#856404; padding:10px; border-radius:8px; margin-bottom:10px; text-align:center; font-weight:bold;">⚠️ JÁ CONTADO: <span id="m-qtd-anterior">0</span></div>
             <label style="font-size: 11px; font-weight: bold;">PRODUTO:</label>
-            <input type="text" id="m-nome-edit">
+            <input type="text" id="m-nome-edit" style="margin-bottom:10px; font-weight:bold;">
             <div class="m-info-box">
-                <p id="m-gtin" style="font-size:11px; margin:0 0 5px 0; color:var(--orange); font-weight:bold;"></p>
-                <p id="m-loc-cod" style="font-size:11px; margin:2px 0; color:#555;"></p>
-                <p id="m-sist-val" style="font-size:14px; margin:4px 0; font-weight:bold; color:var(--blue);"></p>
-                <p id="m-cmc-val" style="font-size:11px; margin:0; color:var(--red); font-weight:bold;"></p>
+                <p id="m-gtin" style="font-size:11px; margin:0; color:var(--orange); font-weight:bold;"></p>
+                <p id="m-loc-cod" style="font-size:11px; margin:4px 0; color:#555;"></p>
+                <p id="m-sist-val" style="font-size:13px; font-weight:bold; color:var(--blue); margin:5px 0;"></p>
+                <p id="m-cmc-val" style="font-size:11px; color:var(--red); margin:0; font-weight:bold;"></p>
             </div>
-            <div class="row-qtd-un">
-                <div class="col-qtd"><label style="font-size:12px; font-weight:bold;">QTD FÍSICA:</label><input type="number" id="m-qtd" inputmode="decimal" style="font-size:22px; font-weight:bold; border:2px solid var(--blue);"></div>
-                <div class="col-un"><label style="font-size:12px; font-weight:bold;">UN:</label><input type="text" id="m-un-edit" style="text-align:center;"></div>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <div style="flex:1"><label style="font-size:11px; font-weight:bold;">QTD FÍSICA:</label><input type="number" id="m-qtd" inputmode="decimal" style="font-size:22px; font-weight:bold; border:2px solid var(--blue);"></div>
+                <div style="width:75px"><label style="font-size:11px; font-weight:bold;">UN:</label><input type="text" id="m-un-edit"></div>
             </div>
-            <div class="grid-2col">
-                <div><label style="font-size:11px; font-weight:bold;">Lote:</label><input type="text" id="m-lote"></div>
-                <div><label style="font-size:11px; font-weight:bold;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA"></div>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <div><label style="font-size:11px;">Lote:</label><input type="text" id="m-lote"></div>
+                <div><label style="font-size:11px;">Validade:</label><input type="tel" id="m-validade" maxlength="10" placeholder="DD/MM/AAAA"></div>
             </div>
             <div id="m-venc-alerta-red" style="display:none; font-size:10px; font-weight:bold; color:var(--red); margin-top:5px;">⚠️ PRODUTO VENCIDO!</div>
-            <div id="m-venc-alerta-orange" style="display:none; font-size:10px; font-weight:bold; color:var(--orange); margin-top:5px;">⚠️ VENCE EM BREVE (DENTRO DE 30 DIAS)</div>
-            <div style="margin-top:10px;"><label style="font-size:11px; font-weight:bold;">OBSERVAÇÕES:</label><input type="text" id="m-obs"></div>
-            <div id="botoes-salvar" style="margin-top:20px;">
-                <button id="btn-salvar-normal" class="btn-green" onclick="salvarFinal('substituir')">✅ SALVAR CONTAGEM</button>
-                <div id="botoes-duplicado" style="display:none; gap:10px;"><button class="btn-blue" onclick="salvarFinal('somar')" style="flex:1;">➕ SOMAR</button><button class="btn-orange" onclick="salvarFinal('substituir')" style="flex:1;">🔄 SUBSTITUIR</button></div>
-                <button id="btn-excluir-item" class="btn-red" style="display:none; margin-top:15px; background:#c0392b" onclick="excluirContagemEspecifica()">🗑️ EXCLUIR ESTA CONTAGEM</button>
+            <div id="m-venc-alerta-orange" style="display:none; font-size:10px; font-weight:bold; color:var(--orange); margin-top:5px;">⚠️ VENCE EM BREVE (30 DIAS)</div>
+            <div style="margin-top:10px;"><label style="font-size:11px;">OBSERVAÇÕES:</label><input type="text" id="m-obs"></div>
+            
+            <div style="margin-top:20px;">
+                <button id="btn-salvar-normal" class="btn-green" onclick="salvarFinal('substituir')">✅ SALVAR</button>
+                <div id="botoes-duplicado" style="display:none; gap:10px;"><button class="btn-blue" onclick="salvarFinal('somar')">➕ SOMAR</button><button class="btn-orange" onclick="salvarFinal('substituir')">🔄 TROCAR</button></div>
+                <button id="btn-excluir-item" class="btn-red" style="display:none; margin-top:10px; background:#c0392b;" onclick="excluirContagemEspecifica()">🗑️ APAGAR CONTAGEM</button>
             </div>
-            <button onclick="fecharModal()" style="background:#eee; margin-top:5px; color:#666;">CANCELAR</button>
+            <button onclick="fecharModal()" style="background:none; color:gray; margin-top:5px; border:none; width:100%;">CANCELAR</button>
         </div>
     </div>
 
@@ -125,145 +129,292 @@
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null; let indexEdicao = -1; let html5QrCode = null; let diasParaVencer = null;
 
+        function exportarBackup() {
+            if (contagens.length === 0) return alert("Não há contagens para fazer backup!");
+            const blob = new Blob([JSON.stringify(contagens)], {type: 'application/json'});
+            const a = document.createElement('a'); 
+            a.href = URL.createObjectURL(blob); 
+            a.download = `BACKUP_OMIE_${new Date().toLocaleDateString().replace(/\//g,'-')}.json`; 
+            a.click();
+        }
+
+        function importarBackup(event) {
+            const reader = new FileReader(); 
+            reader.onload = function(e) { 
+                contagens = JSON.parse(e.target.result); 
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); 
+                render(); 
+                alert("Backup Restaurado com Sucesso!"); 
+            };
+            reader.readAsText(event.target.files[0]);
+        }
+
+        function verPendentes() {
+            if(baseDados.length === 0) return alert("Importe a planilha primeiro!");
+            const lS = document.getElementById('filtro-local').value;
+            const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
+            
+            const pendentes = baseDados.filter(i => 
+                !contagens.some(c => c.codigo === i.codigo && c.local === i.local) && 
+                (lS === "" || i.local === lS) && 
+                (fS.length === 0 || fS.includes(i.familia))
+            );
+            
+            const res = document.getElementById('resultados'); 
+            res.innerHTML = `<div style="padding:10px; font-weight:bold; background:#fff3cd; color:#856404; text-align:center; border-radius:8px; margin-bottom:5px;">PENDENTES (${pendentes.length})</div>`;
+            
+            pendentes.slice(0, 30).forEach(i => { 
+                const d = document.createElement('div'); d.className = 'item-res'; 
+                d.innerHTML = `<strong>${i.descricao}</strong><br><small style="color:red;">PENDENTE EM: ${i.local}</small>`; 
+                d.onclick = () => { indexEdicao = -1; abrirModal(i, false); }; 
+                res.appendChild(d); 
+            });
+            document.getElementById('busca-input').value = '';
+        }
+
+        function zerarNaoContados() {
+            if(baseDados.length === 0) return alert("Importe a planilha primeiro!");
+            const lS = document.getElementById('filtro-local').value;
+            const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
+            
+            const pendentes = baseDados.filter(i => 
+                !contagens.some(c => c.codigo === i.codigo && c.local === i.local) && 
+                (lS === "" || i.local === lS) && 
+                (fS.length === 0 || fS.includes(i.familia))
+            );
+            
+            if(pendentes.length === 0) return alert("Nenhum item pendente nos filtros atuais!");
+            
+            if(confirm(`Tem certeza que deseja ZERAR o estoque de ${pendentes.length} itens não contados?`)) {
+                pendentes.forEach(i => { 
+                    contagens.push({...i, fisico: 0, dif: 0 - i.sistema, cmc_unitario: i.cmc || 0, lote: "", validade: "", obs: "NÃO ENCONTRADO", data: new Date().toLocaleString()}); 
+                });
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); 
+                render(); 
+                alert(`${pendentes.length} itens foram zerados com sucesso!`);
+            }
+        }
+
+        function excluirContagemEspecifica() { 
+            if(indexEdicao !== -1 && confirm("Tem certeza que deseja APAGAR esta contagem?")) { 
+                contagens.splice(indexEdicao, 1); 
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); 
+                fecharModal(); 
+                render(); 
+            } 
+        }
+
+        document.getElementById('busca-input').oninput = function() {
+            const t = this.value.toUpperCase().trim();
+            const res = document.getElementById('resultados'); 
+            res.innerHTML = '';
+            if (t.length < 1) return;
+
+            const lS = document.getElementById('filtro-local').value;
+            const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
+
+            const fil = baseDados.filter(i => 
+                (i.descricao.includes(t) || i.codigo.includes(t) || i.gtin.includes(t)) && 
+                (lS === "" || i.local === lS) && 
+                (fS.length === 0 || fS.includes(i.familia))
+            );
+
+            if (fil.length > 0) {
+                fil.slice(0, 15).forEach(i => {
+                    const d = document.createElement('div'); 
+                    d.className = 'item-res';
+                    d.innerHTML = `<strong>${i.descricao}</strong><br><small style="color:gray">${i.local} | SIST: ${i.sistema}</small>`;
+                    d.onclick = () => { indexEdicao = -1; abrirModal(i, false); };
+                    res.appendChild(d);
+                });
+            } else {
+                const btnNovo = document.createElement('button'); 
+                btnNovo.className = 'btn-blue';
+                btnNovo.style.marginTop = '10px';
+                btnNovo.innerHTML = `➕ NOVO PRODUTO: "${t}"`;
+                btnNovo.onclick = () => {
+                    indexEdicao = -1; 
+                    abrirModal({codigo:'MAN_'+Date.now(), gtin:t, descricao:t, local: lS||'MANUAL', familia:'MANUAL', sistema:0, cmc:0, unidade:'UN'}, true);
+                };
+                res.appendChild(btnNovo);
+            }
+        };
+
+        document.getElementById('file-input').onchange = function(e) {
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
+                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
+                let idxCod=-1, idxDesc=-1, idxFam=-1, idxSist=-1, idxLoc=-1, idxCmc=-1, idxUn=-1, idxGtin=-1, hRow=-1;
+                
+                for(let r=0; r<rows.length; r++) {
+                    if(!rows[r]) continue;
+                    let line = rows[r].map(c => String(c || "").toUpperCase().trim());
+                    if(line.includes("CÓDIGO DO PRODUTO") || line.includes("DESCRIÇÃO DO PRODUTO")) {
+                        hRow = r;
+                        line.forEach((cell, c) => {
+                            if(cell.includes("CÓDIGO DO PRODUTO")) idxCod = c;
+                            else if(cell.includes("CÓDIGO EAN")) idxGtin = c;
+                            if(cell.includes("DESCRIÇÃO DO PRODUTO")) idxDesc = c;
+                            if(cell.includes("FAMÍLIA DE PRODUTO")) idxFam = c;
+                            if(cell === "QUANTIDADE") idxSist = c;
+                            if(cell.includes("DESCRIÇÃO DO LOCAL")) idxLoc = c;
+                            if(cell.includes("CMC UNITÁRIO")) idxCmc = c;
+                            if(cell.includes("UNIDADE")) idxUn = c;
+                        });
+                        break; 
+                    }
+                }
+
+                if(hRow === -1 || idxDesc === -1) {
+                    return alert("Erro: Não foi possível encontrar a coluna 'DESCRIÇÃO DO PRODUTO'.");
+                }
+
+                baseDados = []; let locs = new Set(); let fams = new Set();
+                for(let r=hRow+1; r<rows.length; r++) {
+                    let row = rows[r]; 
+                    if (row && row[idxDesc]) {
+                        const l = String(row[idxLoc] || 'PADRAO').trim().toUpperCase();
+                        const f = String(row[idxFam] || 'GERAL').trim().toUpperCase();
+                        locs.add(l); fams.add(f);
+                        baseDados.push({
+                            codigo: String(row[idxCod] || '').trim().toUpperCase(), 
+                            descricao: String(row[idxDesc]).trim().toUpperCase(), 
+                            gtin: String(row[idxGtin] || '').trim(),
+                            familia: f, 
+                            local: l, 
+                            sistema: parseFloat(String(row[idxSist]).replace(',','.')) || 0, 
+                            cmc: parseFloat(String(row[idxCmc]).replace(',','.')) || 0, 
+                            unidade: String(row[idxUn] || 'UN').trim().toUpperCase()
+                        });
+                    }
+                }
+                
+                document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL (TODOS)</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
+                
+                // --- NOVA RENDERIZAÇÃO DA CAIXA DE FAMÍLIAS ---
+                document.getElementById('filtro-familia-multi').innerHTML = Array.from(fams).sort().map((f, i) => `
+                    <div class="multi-select-item">
+                        <input type="checkbox" class="check-f" id="fam-${i}" value="${f}" checked> 
+                        <label for="fam-${i}">${f}</label>
+                    </div>
+                `).join('');
+                
+                render();
+            };
+            reader.readAsArrayBuffer(e.target.files[0]);
+        };
+
         document.getElementById('m-validade').oninput = function(e) {
             let v = e.target.value.replace(/\D/g, '');
             if (v.length > 4) v = v.substring(0, 2) + '/' + v.substring(2, 4) + '/' + v.substring(4, 8);
             else if (v.length > 2) v = v.substring(0, 2) + '/' + v.substring(2);
-            e.target.value = v; diasParaVencer = null; this.classList.remove('vencido', 'vence-breve');
-            document.getElementById('m-venc-alerta-red').style.display = 'none'; document.getElementById('m-venc-alerta-orange').style.display = 'none';
+            e.target.value = v;
+            document.getElementById('m-venc-alerta-red').style.display = 'none';
+            document.getElementById('m-venc-alerta-orange').style.display = 'none';
             if (v.length === 10) {
                 const partes = v.split('/'); const dtValid = new Date(partes[2], partes[1] - 1, partes[0]);
-                const hoje = new Date(); hoje.setHours(0,0,0,0); const diffTime = dtValid - hoje;
-                diasParaVencer = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diasParaVencer < 0) { this.classList.add('vencido'); document.getElementById('m-venc-alerta-red').style.display = 'block'; }
-                else if (diasParaVencer <= 30) { this.classList.add('vence-breve'); document.getElementById('m-venc-alerta-orange').style.display = 'block'; }
+                const hoje = new Date(); hoje.setHours(0,0,0,0);
+                const diff = Math.ceil((dtValid - hoje) / (1000 * 60 * 60 * 24));
+                diasParaVencer = diff;
+                if (diff < 0) document.getElementById('m-venc-alerta-red').style.display = 'block';
+                else if (diff <= 30) document.getElementById('m-venc-alerta-orange').style.display = 'block';
+                document.getElementById('m-obs').focus();
             }
         };
 
-        function exportarBackup() {
-            if (contagens.length === 0) return alert("Vazio!");
-            const blob = new Blob([JSON.stringify(contagens)], {type: 'application/json'});
-            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `BACKUP_VIE_HOTEL_${new Date().toLocaleDateString()}.json`; a.click();
-        }
-
-        function importarBackup(event) {
-            const reader = new FileReader(); reader.onload = function(e) { contagens = JSON.parse(e.target.result); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); alert("Restaurado!"); };
-            reader.readAsText(event.target.files[0]);
-        }
-
-        document.getElementById('file-input').onchange = function(e) {
-            const reader = new FileReader(); reader.onload = function(evt) {
-                const workbook = XLSX.read(new Uint8Array(evt.target.result), {type: 'array'});
-                const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1});
-                let idxCod=-1, idxDesc=-1, idxFam=-1, idxUnid=-1, idxSist=-1, idxCmc=-1, idxLoc=-1, idxGtin=-1, hRow=-1;
-                for(let r=0; r<20; r++){
-                    if(!rows[r]) continue;
-                    rows[r].forEach((cell, c) => {
-                        let txt = String(cell || "").toUpperCase().trim();
-                        if(txt.includes("CÓDIGO DO PRODUTO")) idxCod = c; if(txt.includes("DESCRIÇÃO DO PRODUTO")) idxDesc = c;
-                        if(txt.includes("FAMÍLIA DE PRODUTO")) idxFam = c; if(txt.includes("UNIDADE")) idxUnid = c;
-                        if(txt === "QUANTIDADE") idxSist = c; if(txt.includes("CMC UNITÁRIO")) idxCmc = c;
-                        if(txt.includes("DESCRIÇÃO DO LOCAL")) idxLoc = c; if(txt.includes("CÓDIGO EAN")) idxGtin = c;
-                    });
-                    if(idxCod !== -1 && idxDesc !== -1) { hRow = r; break; }
-                }
-                baseDados = []; let locs = new Set(); let fams = new Set();
-                for(let r=hRow+1; r<rows.length; r++) {
-                    let row = rows[r]; if (row && row[idxDesc]) {
-                        const l = String(row[idxLoc] || 'SEM LOCAL').trim().toUpperCase();
-                        const f = String(row[idxFam] || 'SEM FAMILIA').trim().toUpperCase();
-                        locs.add(l); fams.add(f);
-                        baseDados.push({codigo: String(row[idxCod] || '').trim().toUpperCase(), descricao: String(row[idxDesc]).trim().toUpperCase(), gtin: String(row[idxGtin] || '').trim(), unidade: String(row[idxUnid] || 'UN').toUpperCase(), familia: f, local: l, sistema: parseFloat(String(row[idxSist] || "0").replace(',','.')), cmc: parseFloat(String(row[idxCmc] || "0").replace(',','.'))});
-                    }
-                }
-                document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                document.getElementById('filtro-familia').innerHTML = '<option value="">📂 FAMÍLIA</option>' + Array.from(fams).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                render();
-            }; reader.readAsArrayBuffer(e.target.files[0]);
-        };
-
-        function zerarNaoContados() {
-            if(baseDados.length === 0) return alert("Sem planilha!");
-            const lS = document.getElementById('filtro-local').value; const fS = document.getElementById('filtro-familia').value;
-            const pendentes = baseDados.filter(item => { return !contagens.some(c => c.codigo === item.codigo && c.local === item.local) && (lS === "" || item.local === lS) && (fS === "" || item.familia === fS); });
-            if(pendentes.length === 0) return alert("Nada pendente!");
-            if(confirm(`ZERAR saldo de ${pendentes.length} itens?`)) {
-                pendentes.forEach(i => { contagens.push({...i, fisico: 0, dif: 0 - i.sistema, cmc_unitario: i.cmc || 0, lote: "", validade: "", obs: "NÃO ENCONTRADO NO INVENTÁRIO", data: new Date().toLocaleString()}); });
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); render(); alert("Zerados!");
-            }
-        }
-
-        function verPendentes() {
-            if(baseDados.length === 0) return alert("Sem planilha!");
-            const lS = document.getElementById('filtro-local').value; const fS = document.getElementById('filtro-familia').value;
-            const pendentes = baseDados.filter(item => { return !contagens.some(c => c.codigo === item.codigo && c.local === item.local) && (lS === "" || item.local === lS) && (fS === "" || item.familia === fS); });
-            const res = document.getElementById('resultados'); res.innerHTML = `<h4>PENDENTES (${pendentes.length}):</h4>`;
-            pendentes.slice(0, 30).forEach(i => { const d = document.createElement('div'); d.className = 'item-res'; d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:var(--red);">PENDENTE EM: ${i.local}</div>`; d.onclick = () => { indexEdicao = -1; abrirModal(i, false); }; res.appendChild(d); });
-            window.scrollTo(0, document.getElementById('btn-cam').offsetTop);
-        }
-
-        function render() {
-            const b = document.getElementById('tabela-body'); let pT = 0; let financeiro = 0; b.innerHTML = '';
-            const rH = document.getElementById('recent-history'); rH.innerHTML = '';
-            contagens.slice(0, 3).forEach(i => { rH.innerHTML += `<div class="recent-item"><b>${i.descricao.substring(0,12)}</b><br>${i.fisico} ${i.unidade}</div>`; });
-            contagens.forEach((i, idx) => {
-                pT += i.fisico; financeiro += (i.dif * i.cmc_unitario); let cl = i.dif < 0 ? 'diff-neg' : (i.dif === 0 ? 'diff-zero' : 'diff-pos');
-                b.innerHTML += `<tr onclick="editarContagem(${idx})"><td style="text-align:left">${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td class="${cl}">${i.dif.toFixed(2)}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
-            });
-            document.getElementById('dash-skus').innerText = contagens.length; document.getElementById('dash-pecas').innerText = pT.toFixed(2);
-            const fEl = document.getElementById('dash-financeiro'); fEl.innerText = "R$ " + financeiro.toLocaleString('pt-BR', {minimumFractionDigits: 2}); fEl.className = financeiro < 0 ? "val-neg" : "val-pos";
-        }
-
-        function editarContagem(idx) {
-            indexEdicao = idx; const item = contagens[idx]; abrirModal(item, false);
-            document.getElementById('m-qtd').value = item.fisico; document.getElementById('m-lote').value = item.lote || "";
-            document.getElementById('m-validade').value = item.validade || ""; document.getElementById('m-obs').value = item.obs || "";
-            document.getElementById('btn-excluir-item').style.display = 'block'; document.getElementById('m-aviso-dup').style.display = 'none';
-            document.getElementById('btn-salvar-normal').style.display = 'block'; document.getElementById('botoes-duplicado').style.display = 'none';
-            document.getElementById('m-validade').dispatchEvent(new Event('input'));
-        }
+        ['m-qtd', 'm-un-edit', 'm-lote', 'm-validade', 'm-obs'].forEach(id => {
+            document.getElementById(id).addEventListener('focus', function() { this.select(); });
+        });
 
         function abrirModal(item, isNovo) {
-            itemAtual = item; if(indexEdicao === -1) {
-                document.getElementById('m-lote').value = ""; document.getElementById('m-validade').value = ""; document.getElementById('m-obs').value = "";
-                document.getElementById('m-validade').classList.remove('vencido', 'vence-breve'); document.getElementById('m-venc-alerta-red').style.display = 'none'; document.getElementById('m-venc-alerta-orange').style.display = 'none';
+            itemAtual = item; 
+            document.getElementById('m-nome-edit').value = item.descricao;
+            document.getElementById('m-nome-edit').readOnly = !isNovo;
+            document.getElementById('m-un-edit').value = item.unidade;
+            document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`;
+            document.getElementById('m-gtin').innerText = "GTIN: " + (item.gtin || "N/A");
+            document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
+            document.getElementById('m-cmc-val').innerText = `CMC: R$ ${(item.cmc || 0).toFixed(2)}`;
+            
+            if(indexEdicao === -1) {
+                document.getElementById('m-qtd').value = '';
+                document.getElementById('m-lote').value = '';
+                document.getElementById('m-validade').value = '';
+                document.getElementById('m-obs').value = '';
+                document.getElementById('m-venc-alerta-red').style.display = 'none';
+                document.getElementById('m-venc-alerta-orange').style.display = 'none';
+                diasParaVencer = null;
+
                 const idxAnt = contagens.findIndex(c => c.codigo === item.codigo && c.local === item.local);
-                if(idxAnt !== -1) { document.getElementById('m-aviso-dup').style.display = 'block'; document.getElementById('m-qtd-anterior').innerText = contagens[idxAnt].fisico; document.getElementById('m-un-anterior').innerText = contagens[idxAnt].unidade; document.getElementById('btn-salvar-normal').style.display = 'none'; document.getElementById('botoes-duplicado').style.display = 'flex'; }
-                else { document.getElementById('m-aviso-dup').style.display = 'none'; document.getElementById('btn-salvar-normal').style.display = 'block'; document.getElementById('botoes-duplicado').style.display = 'none'; }
+                document.getElementById('m-aviso-dup').style.display = idxAnt !== -1 ? 'block' : 'none';
+                document.getElementById('m-qtd-anterior').innerText = idxAnt !== -1 ? contagens[idxAnt].fisico : '';
+                document.getElementById('btn-salvar-normal').style.display = idxAnt !== -1 ? 'none' : 'block';
+                document.getElementById('botoes-duplicado').style.display = idxAnt !== -1 ? 'flex' : 'none';
+                
+                document.getElementById('btn-excluir-item').style.display = 'none';
+            } else {
+                document.getElementById('btn-excluir-item').style.display = 'block';
             }
-            document.getElementById('m-un-edit').value = item.unidade; document.getElementById('m-un-edit').readOnly = !isNovo;
-            document.getElementById('m-gtin').innerText = "GTIN: " + (item.gtin || "N/A"); document.getElementById('m-nome-edit').value = item.descricao; document.getElementById('m-nome-edit').readOnly = !isNovo;
-            document.getElementById('m-loc-cod').innerText = `📍 ${item.local} | CÓD: ${item.codigo}`; document.getElementById('m-sist-val').innerText = `SISTEMA: ${item.sistema} ${item.unidade}`;
-            document.getElementById('m-cmc-val').innerText = `CMC: R$ ${(item.cmc || 0).toFixed(2)}`; document.getElementById('modal').style.display = "flex"; document.getElementById('m-qtd').value = '';
+            
+            document.getElementById('modal').style.display = "flex";
             setTimeout(() => document.getElementById('m-qtd').focus(), 300);
         }
 
         function salvarFinal(modo) {
-            const qVal = document.getElementById('m-qtd').value; if (!qVal) return alert("Qtd!");
-            let novaQtd = parseFloat(qVal); let finalObs = document.getElementById('m-obs').value.toUpperCase();
-            if (diasParaVencer !== null) { if (diasParaVencer < 0) finalObs = "[VENCIDO] " + finalObs; else if (diasParaVencer <= 30) finalObs = `[VENCE EM ${diasParaVencer} DIAS] ` + finalObs; }
+            const qVal = document.getElementById('m-qtd').value; if (!qVal) return alert("Digite a Qtd Física!");
+            let novaQtd = parseFloat(qVal);
+            
+            itemAtual.descricao = document.getElementById('m-nome-edit').value.toUpperCase();
+            itemAtual.unidade = document.getElementById('m-un-edit').value.toUpperCase();
+            
+            let obs = document.getElementById('m-obs').value.toUpperCase();
+            if (diasParaVencer !== null) {
+                if (diasParaVencer < 0) obs = "[VENCIDO] " + obs;
+                else if (diasParaVencer <= 30) obs = `[VENCE EM ${diasParaVencer} DIAS] ` + obs;
+            }
+            
+            const idxAnt = contagens.findIndex(c => c.codigo === itemAtual.codigo && c.local === itemAtual.local);
             if(indexEdicao !== -1) contagens.splice(indexEdicao, 1);
-            else { const idxAnt = contagens.findIndex(c => c.codigo === itemAtual.codigo && c.local === itemAtual.local); if(modo === 'somar' && idxAnt !== -1) { novaQtd = contagens[idxAnt].fisico + novaQtd; contagens.splice(idxAnt, 1); } else if (idxAnt !== -1) contagens.splice(idxAnt, 1); }
-            contagens.unshift({...itemAtual, fisico: novaQtd, dif: novaQtd - itemAtual.sistema, cmc_unitario: itemAtual.cmc || 0, lote: document.getElementById('m-lote').value.toUpperCase(), validade: document.getElementById('m-validade').value, obs: finalObs, data: new Date().toLocaleString()});
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); fecharModal(); render();
-            document.getElementById('busca-input').value = ''; document.getElementById('resultados').innerHTML = '';
+            else if(idxAnt !== -1) { 
+                if(modo === 'somar') novaQtd += contagens[idxAnt].fisico;
+                contagens.splice(idxAnt, 1); 
+            }
+            
+            contagens.unshift({...itemAtual, fisico: novaQtd, dif: novaQtd - itemAtual.sistema, cmc_unitario: itemAtual.cmc || 0, lote: document.getElementById('m-lote').value.toUpperCase(), validade: document.getElementById('m-validade').value, obs: obs, data: new Date().toLocaleString()});
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens));
+            
+            document.getElementById('busca-input').value = ''; 
+            document.getElementById('resultados').innerHTML = '';
+            fecharModal(); render(); 
+            document.getElementById('busca-input').focus();
         }
 
-        function excluirContagemEspecifica() { if(indexEdicao !== -1 && confirm("Excluir?")) { contagens.splice(indexEdicao, 1); localStorage.setItem(STORAGE_KEY, JSON.stringify(contagens)); fecharModal(); render(); } }
+        function render() {
+            const b = document.getElementById('tabela-body'); let pT = 0; let financeiro = 0; b.innerHTML = '';
+            contagens.forEach((i, idx) => {
+                pT += i.fisico; financeiro += (i.dif * i.cmc_unitario);
+                b.innerHTML += `<tr onclick="editarContagem(${idx})"><td>${i.descricao}</td><td>${i.sistema}</td><td>${i.fisico}</td><td>${i.dif.toFixed(2)}</td><td>${i.cmc_unitario.toFixed(2)}</td></tr>`;
+            });
+            document.getElementById('dash-skus').innerText = contagens.length;
+            document.getElementById('dash-pecas').innerText = pT.toFixed(2);
+            document.getElementById('dash-financeiro').innerText = "R$ " + financeiro.toLocaleString('pt-BR', {minimumFractionDigits: 2});
+        }
+
         function fecharModal() { document.getElementById('modal').style.display = "none"; indexEdicao = -1; diasParaVencer = null; }
-
-        document.getElementById('busca-input').oninput = function() {
-            const t = this.value.toUpperCase().trim(); const lS = document.getElementById('filtro-local').value; const fS = document.getElementById('filtro-familia').value;
-            const res = document.getElementById('resultados'); res.innerHTML = ''; if (t.length < 1) return;
-            const fil = baseDados.filter(i => (i.descricao.includes(t) || i.codigo.includes(t) || i.gtin.includes(t)) && (lS === "" || i.local === lS) && (fS === "" || i.familia === fS));
-            if(fil.length > 0) { fil.slice(0, 15).forEach(i => { const d = document.createElement('div'); d.className = 'item-res'; d.innerHTML = `<strong>${i.descricao}</strong><div style="font-size:10px; color:#666;">${i.local}</div>`; d.onclick = () => { indexEdicao = -1; abrirModal(i, false); }; res.appendChild(d); }); }
-            else { 
-                // CORREÇÃO: GERAR ID ÚNICO PARA PRODUTO NOVO
-                const idUnico = 'MANUAL_' + Date.now();
-                res.innerHTML = `<button class="btn-blue" onclick="indexEdicao = -1; abrirModal({codigo:'${idUnico}', gtin:'${t}', descricao:'${t}', local:'${lS||'MANUAL'}', sistema:0, cmc:0, unidade:'UN'}, true)">➕ NOVO: "${t}"</button>`; 
-            }
-        };
-
+        
+        function editarContagem(idx) { 
+            indexEdicao = idx; 
+            abrirModal(contagens[idx], false); 
+            document.getElementById('m-qtd').value = contagens[idx].fisico; 
+            document.getElementById('m-lote').value = contagens[idx].lote || ''; 
+            document.getElementById('m-validade').value = contagens[idx].validade || ''; 
+            document.getElementById('m-obs').value = contagens[idx].obs || ''; 
+        }
+        
+        function baixarExcel(t) { const ws = XLSX.utils.json_to_sheet(t === 'erros' ? contagens.filter(i => i.dif !== 0) : contagens); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "Auditoria"); XLSX.writeFile(wb, "Inventario.xlsx"); }
+        function limparTudo() { if(confirm("Limpar Tudo?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
+        
         async function controlarCamera() {
             const btn = document.getElementById('btn-cam');
             if (btn.innerText.includes("LIGAR")) {
@@ -275,21 +426,7 @@
                 });
             } else { desligarCam(); }
         }
-
         function desligarCam() { if (html5QrCode) { html5QrCode.stop().then(() => { document.getElementById('reader').style.display = "none"; document.getElementById('btn-cam').innerText = "📷 LIGAR SCANNER"; document.getElementById('btn-cam').className = "btn-blue"; }); } }
-        
-        function baixarExcel(tipo) {
-            if (contagens.length === 0) return alert("Nada para exportar!");
-            let dadosFiltrados = tipo === 'erros' ? contagens.filter(i => i.dif !== 0) : contagens;
-            if (dadosFiltrados.length === 0) return alert("Não há divergências para exportar!");
-            const worksheet = XLSX.utils.json_to_sheet(dadosFiltrados);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, "AUDITORIA");
-            const nomeArquivo = `INVENTARIO_${tipo.toUpperCase()}_${new Date().toLocaleDateString().replace(/\//g,'-')}.xlsx`;
-            XLSX.writeFile(workbook, nomeArquivo);
-        }
-
-        function limparTudo() { if(confirm("Limpar?")) { localStorage.removeItem(STORAGE_KEY); contagens = []; render(); } }
         render();
     </script>
 </body>
