@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-29.3 - VISUAL SELEÇÃO CORRIGIDO</title>
+    <title>Auditor Omie V-29.4 - FILTROS MULTIPLOS</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -14,7 +14,6 @@
         .dash-card { background: white; padding: 10px; border-radius: 8px; text-align: center; border-top: 4px solid var(--blue); }
         .dash-card p { margin: 5px 0 0; font-size: 16px; font-weight: bold; }
         
-        /* --- NOVO VISUAL DA CAIXA DE FAMÍLIAS --- */
         .multi-select-box { border: 1px solid #ddd; border-radius: 8px; padding: 5px; max-height: 140px; overflow-y: auto; background: #fff; margin-top: 5px; }
         .multi-select-item { display: flex; align-items: center; justify-content: flex-start; gap: 10px; font-size: 11px; padding: 8px 10px; border-bottom: 1px solid #f0f0f0; text-align: left; }
         .multi-select-item input { margin: 0; width: 18px; height: 18px; cursor: pointer; flex-shrink: 0; }
@@ -54,8 +53,12 @@
     <div class="card">
         <label style="font-size: 11px; font-weight: bold;">1. PLANILHA OMIE:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
-        <select id="filtro-local" style="margin-top: 10px;"><option value="">📍 LOCAL (TODOS)</option></select>
         
+        <div style="margin-top: 10px;">
+            <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📍 LOCAIS (TOQUE PARA MARCAR/DESMARCAR):</label>
+            <div id="filtro-local-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
+        </div>
+
         <div style="margin-top: 10px;">
             <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📂 FAMÍLIAS (TOQUE PARA MARCAR/DESMARCAR):</label>
             <div id="filtro-familia-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
@@ -149,14 +152,17 @@
             reader.readAsText(event.target.files[0]);
         }
 
+        // --- FUNÇÃO PARA PEGAR OS LOCAIS SELECIONADOS ---
+        function getLocsSel() { return Array.from(document.querySelectorAll('.check-l:checked')).map(cb => cb.value); }
+
         function verPendentes() {
             if(baseDados.length === 0) return alert("Importe a planilha primeiro!");
-            const lS = document.getElementById('filtro-local').value;
+            const lS = getLocsSel();
             const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
             
             const pendentes = baseDados.filter(i => 
                 !contagens.some(c => c.codigo === i.codigo && c.local === i.local) && 
-                (lS === "" || i.local === lS) && 
+                (lS.length === 0 || lS.includes(i.local)) && 
                 (fS.length === 0 || fS.includes(i.familia))
             );
             
@@ -174,12 +180,12 @@
 
         function zerarNaoContados() {
             if(baseDados.length === 0) return alert("Importe a planilha primeiro!");
-            const lS = document.getElementById('filtro-local').value;
+            const lS = getLocsSel();
             const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
             
             const pendentes = baseDados.filter(i => 
                 !contagens.some(c => c.codigo === i.codigo && c.local === i.local) && 
-                (lS === "" || i.local === lS) && 
+                (lS.length === 0 || lS.includes(i.local)) && 
                 (fS.length === 0 || fS.includes(i.familia))
             );
             
@@ -210,12 +216,12 @@
             res.innerHTML = '';
             if (t.length < 1) return;
 
-            const lS = document.getElementById('filtro-local').value;
+            const lS = getLocsSel();
             const fS = Array.from(document.querySelectorAll('.check-f:checked')).map(cb => cb.value);
 
             const fil = baseDados.filter(i => 
                 (i.descricao.includes(t) || i.codigo.includes(t) || i.gtin.includes(t)) && 
-                (lS === "" || i.local === lS) && 
+                (lS.length === 0 || lS.includes(i.local)) && 
                 (fS.length === 0 || fS.includes(i.familia))
             );
 
@@ -234,7 +240,8 @@
                 btnNovo.innerHTML = `➕ NOVO PRODUTO: "${t}"`;
                 btnNovo.onclick = () => {
                     indexEdicao = -1; 
-                    abrirModal({codigo:'MAN_'+Date.now(), gtin:t, descricao:t, local: lS||'MANUAL', familia:'MANUAL', sistema:0, cmc:0, unidade:'UN'}, true);
+                    const defLoc = lS.length > 0 ? lS[0] : 'MANUAL';
+                    abrirModal({codigo:'MAN_'+Date.now(), gtin:t, descricao:t, local: defLoc, familia:'MANUAL', sistema:0, cmc:0, unidade:'UN'}, true);
                 };
                 res.appendChild(btnNovo);
             }
@@ -290,9 +297,15 @@
                     }
                 }
                 
-                document.getElementById('filtro-local').innerHTML = '<option value="">📍 LOCAL (TODOS)</option>' + Array.from(locs).sort().map(i => `<option value="${i}">${i}</option>`).join('');
-                
-                // --- NOVA RENDERIZAÇÃO DA CAIXA DE FAMÍLIAS ---
+                // --- NOVA RENDERIZAÇÃO DA CAIXA DE LOCAIS ---
+                document.getElementById('filtro-local-multi').innerHTML = Array.from(locs).sort().map((l, i) => `
+                    <div class="multi-select-item">
+                        <input type="checkbox" class="check-l" id="loc-${i}" value="${l}" checked> 
+                        <label for="loc-${i}">${l}</label>
+                    </div>
+                `).join('');
+
+                // --- RENDERIZAÇÃO DA CAIXA DE FAMÍLIAS ---
                 document.getElementById('filtro-familia-multi').innerHTML = Array.from(fams).sort().map((f, i) => `
                     <div class="multi-select-item">
                         <input type="checkbox" class="check-f" id="fam-${i}" value="${f}" checked> 
