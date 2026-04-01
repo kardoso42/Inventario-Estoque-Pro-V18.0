@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Auditor Omie V-29.4 - FILTROS MULTIPLOS</title>
+    <title>Auditor Omie V-29.5 - TELA LIMPA</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
@@ -38,6 +38,9 @@
         .vence-breve { border: 2px solid var(--orange) !important; background: #fff9f0 !important; color: var(--orange); }
         table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 10px; }
         th, td { border: 1px solid #ddd; padding: 8px 4px; text-align: center; }
+
+        /* Estilo do botão de esconder/mostrar */
+        .toggle-box { background: #eef2f7; padding: 12px; border-radius: 8px; margin-top: 12px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: bold; color: var(--blue); border: 1px solid #dce4ec; }
     </style>
 </head>
 <body>
@@ -54,22 +57,29 @@
         <label style="font-size: 11px; font-weight: bold;">1. PLANILHA OMIE:</label>
         <input type="file" id="file-input" accept=".xlsx, .xls, .csv">
         
-        <div style="margin-top: 10px;">
-            <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📍 LOCAIS (TOQUE PARA MARCAR/DESMARCAR):</label>
-            <div id="filtro-local-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
+        <div class="toggle-box" onclick="toggleFiltros()">
+            <span>⚙️ FILTROS, PENDENTES E BACKUP</span>
+            <span id="icon-toggle">▲</span>
         </div>
 
-        <div style="margin-top: 10px;">
-            <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📂 FAMÍLIAS (TOQUE PARA MARCAR/DESMARCAR):</label>
-            <div id="filtro-familia-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
-        </div>
+        <div id="area-filtros" style="display: block;">
+            <div style="margin-top: 10px;">
+                <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📍 LOCAIS (TOQUE PARA MARCAR/DESMARCAR):</label>
+                <div id="filtro-local-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
+            </div>
 
-        <div class="grid-buttons">
-            <button class="btn-outline" onclick="exportarBackup()">💾 BACKUP</button>
-            <button class="btn-outline" onclick="document.getElementById('import-backup').click()">📥 RESTAURAR</button>
-            <input type="file" id="import-backup" style="display:none" onchange="importarBackup(event)">
-            <button class="btn-outline" style="border-color: var(--orange); color: var(--orange);" onclick="verPendentes()">🔍 PENDENTES</button>
-            <button class="btn-outline" style="border-color: var(--red); color: var(--red);" onclick="zerarNaoContados()">⚠️ ZERAR RESTO</button>
+            <div style="margin-top: 10px;">
+                <label style="font-size: 10px; font-weight: bold; color: var(--gray);">📂 FAMÍLIAS (TOQUE PARA MARCAR/DESMARCAR):</label>
+                <div id="filtro-familia-multi" class="multi-select-box"><small style="color:gray; padding: 5px;">Aguardando planilha...</small></div>
+            </div>
+
+            <div class="grid-buttons">
+                <button class="btn-outline" onclick="exportarBackup()">💾 BACKUP</button>
+                <button class="btn-outline" onclick="document.getElementById('import-backup').click()">📥 RESTAURAR</button>
+                <input type="file" id="import-backup" style="display:none" onchange="importarBackup(event)">
+                <button class="btn-outline" style="border-color: var(--orange); color: var(--orange);" onclick="verPendentes()">🔍 PENDENTES</button>
+                <button class="btn-outline" style="border-color: var(--red); color: var(--red);" onclick="zerarNaoContados()">⚠️ ZERAR RESTO</button>
+            </div>
         </div>
     </div>
 
@@ -132,6 +142,19 @@
         let contagens = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
         let itemAtual = null; let indexEdicao = -1; let html5QrCode = null; let diasParaVencer = null;
 
+        // --- FUNÇÃO PARA ESCONDER/MOSTRAR FILTROS ---
+        function toggleFiltros() {
+            const area = document.getElementById('area-filtros');
+            const icon = document.getElementById('icon-toggle');
+            if (area.style.display === 'none') {
+                area.style.display = 'block';
+                icon.innerText = '▲';
+            } else {
+                area.style.display = 'none';
+                icon.innerText = '▼';
+            }
+        }
+
         function exportarBackup() {
             if (contagens.length === 0) return alert("Não há contagens para fazer backup!");
             const blob = new Blob([JSON.stringify(contagens)], {type: 'application/json'});
@@ -152,7 +175,6 @@
             reader.readAsText(event.target.files[0]);
         }
 
-        // --- FUNÇÃO PARA PEGAR OS LOCAIS SELECIONADOS ---
         function getLocsSel() { return Array.from(document.querySelectorAll('.check-l:checked')).map(cb => cb.value); }
 
         function verPendentes() {
@@ -297,7 +319,6 @@
                     }
                 }
                 
-                // --- NOVA RENDERIZAÇÃO DA CAIXA DE LOCAIS ---
                 document.getElementById('filtro-local-multi').innerHTML = Array.from(locs).sort().map((l, i) => `
                     <div class="multi-select-item">
                         <input type="checkbox" class="check-l" id="loc-${i}" value="${l}" checked> 
@@ -305,7 +326,6 @@
                     </div>
                 `).join('');
 
-                // --- RENDERIZAÇÃO DA CAIXA DE FAMÍLIAS ---
                 document.getElementById('filtro-familia-multi').innerHTML = Array.from(fams).sort().map((f, i) => `
                     <div class="multi-select-item">
                         <input type="checkbox" class="check-f" id="fam-${i}" value="${f}" checked> 
@@ -314,6 +334,9 @@
                 `).join('');
                 
                 render();
+                
+                // OPCIONAL: Esconde os filtros automaticamente logo após carregar a planilha para limpar a tela
+                // toggleFiltros(); 
             };
             reader.readAsArrayBuffer(e.target.files[0]);
         };
